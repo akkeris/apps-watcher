@@ -53,3 +53,69 @@ To test run `npm test`.
 2. To reproduce an out of memory app see `tests/outofmemory` it contains an example Dockerfile/app that slowly incurs memory until it runs out, set the limit on it to 64Mi.
 3. Setting the wrong port on `tests/outofmemory` will also trigger a failure to boot code.
 4. Setting an incorrect start command (override dockerfile CMD/ENTRYPOINT) in `tests/outofmemory` 
+
+### Events Payloads
+
+There are two types of events `released` and `crashed`. Each is sent via a `POST` operation to every url in the `$NOTIFY` comma seperated list.
+
+*Crashed*
+
+`POST /endpoint/in/notify/env`
+
+```json
+{
+  "app":{
+    "name":"testapp"
+  },
+  "space":{
+    "name":"thespace"
+  },
+  "dynos":[
+    {
+      "dyno":"389233991.aed11", 
+      "type":"web"
+    }
+  ],
+  "key":"testapp-thespace",
+  "action":"crashed",
+  "description":"Description of what caused the crash",
+  "code":"H20",
+  "restarts":0,
+  "crashed_at":"2016-07-18T14:55:38.190Z"
+}
+```
+
+*Released*
+
+`POST /endpoint/in/notify/env`
+
+```json
+{
+  "app":{
+    "name":"testapp"
+  },
+  "space":{
+    "name":"thespace"
+  },
+  "key":"testapp-thespace",
+  "action":"released",
+  "slug":{
+    "image":"registry.example.com/repo/image:tag",
+  },
+  "released_at":"2016-07-18T14:55:38.190Z"
+}
+```
+
+
+### Codes
+
+When an application crashes the following codes may be used:
+
+* `R14 - Memory quota exceeded`
+* `H10 - App Crashed`
+* `H9 - App did not startup`
+* `H20 - App boot timeout`
+* `H8 - App exited prematurely`
+* `H98 - Platform limit error` (app failed to find a node to launch on)
+* `H99 - Platform error` (usually image failed to pull)
+* `H0 - Unknown error` (no known cause, but app cannot run) 
