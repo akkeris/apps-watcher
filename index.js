@@ -42,6 +42,9 @@ async function connect_kube() {
     kc.loadFromFile(process.env['HOME'] + '/.kube/config');
   } else {
     console.assert(process.env.VAULT_ADDR, 'The VAULT_ADDR was not found.')
+    if(!process.env.VAULT_ADDR.startsWith('http')) {
+      process.env.VAULT_ADDR = 'https://' + process.env.VAULT_ADDR
+    }
     console.assert(!process.env.VAULT_ADDR.startsWith('http'), 'VAULT_ADDR should be a host not a url.')
     console.assert(process.env.VAULT_TOKEN, 'The VAULT_TOKEN was not found.')
     console.assert(process.env.KUBERNETES_CERT_SECRET, 'The KUBERNETES_CERT_SECRET path was not found.')
