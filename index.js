@@ -51,7 +51,7 @@ async function connect_kube() {
     console.assert(process.env.KUBERNETES_API_VERSION, 'The KUBERNETES_API_VERSION value was not found.')
     console.assert(process.env.KUBERNETES_CONTEXT, 'The KUBERNETES_CONTEXT value was not found.')
     console.assert(process.env.KUBERNETES_API_SERVER, 'The KUBERNETES_API_SERVER value was not found.')
-    let vc = vault({apiVersion:'v1', endpoint:('https://' + process.env.VAULT_ADDR), token:process.env.VAULT_TOKEN})
+    let vc = vault({apiVersion:'v1', endpoint:process.env.VAULT_ADDR, token:process.env.VAULT_TOKEN})
     let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
     console.assert(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
     console.assert(cert['admin-crt'], 'The admin-crt was not found within the vault kubernetes secret')
