@@ -184,6 +184,7 @@ function crashed(type, obj) {
   if(process.env.TEST_MODE) {
     return payload
   } else {
+    console.log(`** ${app} crashed ${code} (${description})`)
     send(payload)
   }
   // TODO: influx db annotation
@@ -252,6 +253,7 @@ function released(type, obj) {
     if(process.env.TEST_MODE) {
       return payload
     } else {
+      console.log(`** ${app} released ${image}`)
       send(payload)
     }
   }
