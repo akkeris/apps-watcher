@@ -10,12 +10,10 @@ class Watch {
         let url = this.config.getCurrentCluster().server + path;
 
         queryParams['watch'] = true;
-        let headerParams;
-
         let requestOptions = {
             method: 'GET',
             qs: queryParams,
-            headers: headerParams,
+            headers: {},
             uri: url,
             useQuerystring: true,
             json: true,

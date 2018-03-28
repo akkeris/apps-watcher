@@ -47,41 +47,67 @@ async function connect_kube() {
     }
     console.assert(process.env.VAULT_ADDR.startsWith('http'), 'VAULT_ADDR should be a url not a host.')
     console.assert(process.env.VAULT_TOKEN, 'The VAULT_TOKEN was not found.')
-    console.assert(process.env.KUBERNETES_CERT_SECRET, 'The KUBERNETES_CERT_SECRET path was not found.')
     console.assert(process.env.KUBERNETES_API_VERSION, 'The KUBERNETES_API_VERSION value was not found.')
     console.assert(process.env.KUBERNETES_CONTEXT, 'The KUBERNETES_CONTEXT value was not found.')
     console.assert(process.env.KUBERNETES_API_SERVER, 'The KUBERNETES_API_SERVER value was not found.')
     let vc = vault({apiVersion:'v1', endpoint:process.env.VAULT_ADDR, token:process.env.VAULT_TOKEN})
-    let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
-    console.assert(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
-    console.assert(cert['admin-crt'], 'The admin-crt was not found within the vault kubernetes secret')
-    console.assert(cert['admin-key'], 'The admin-key was not found within the vault kubernetes secret')
-    kc.loadFromString(`
-      apiVersion: ${process.env.KUBERNETES_API_VERSION}
-      clusters:
-      - cluster:
-          certificate-authority-data: ${(new Buffer(cert['ca-crt'])).toString('base64')}
-          server: https://${process.env.KUBERNETES_API_SERVER}
-        name: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
-      contexts:
-      - context:
-          cluster: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
-          namespace: kube-system
-          user: alamo-${process.env.KUBERNETES_CONTEXT}-admin
-        name: ${process.env.KUBERNETES_CONTEXT}
-      current-context: ${process.env.KUBERNETES_CONTEXT}
-      kind: Config
-      preferences: {}
-      users:
-      - name: alamo-${process.env.KUBERNETES_CONTEXT}-admin
-        user:
-          client-certificate-data: ${(new Buffer(cert['admin-crt'])).toString('base64')}
-          client-key-data: ${(new Buffer(cert['admin-key'])).toString('base64')}`)
+    if(!process.env.KUBERNETES_TOKEN_SECRET) {
+      let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
+      console.assert(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
+      console.assert(cert['admin-crt'], 'The admin-crt was not found within the vault kubernetes secret')
+      console.assert(cert['admin-key'], 'The admin-key was not found within the vault kubernetes secret')
+      kc.loadFromString(`
+        apiVersion: ${process.env.KUBERNETES_API_VERSION}
+        clusters:
+        - cluster:
+            certificate-authority-data: ${(new Buffer(cert['ca-crt'])).toString('base64')}
+            server: https://${process.env.KUBERNETES_API_SERVER}
+          name: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
+        contexts:
+        - context:
+            cluster: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
+            namespace: kube-system
+            user: alamo-${process.env.KUBERNETES_CONTEXT}-admin
+          name: ${process.env.KUBERNETES_CONTEXT}
+        current-context: ${process.env.KUBERNETES_CONTEXT}
+        kind: Config
+        preferences: {}
+        users:
+        - name: alamo-${process.env.KUBERNETES_CONTEXT}-admin
+          user:
+            client-certificate-data: ${(new Buffer(cert['admin-crt'])).toString('base64')}
+            client-key-data: ${(new Buffer(cert['admin-key'])).toString('base64')}`)
+    } else {
+      let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
+      let token = (await vc.read(process.env.KUBERNETES_TOKEN_SECRET)).data
+      console.assert(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
+      kc.loadFromString(`
+        apiVersion: ${process.env.KUBERNETES_API_VERSION}
+        clusters:
+        - cluster:
+            insecure-skip-tls-verify: 'true'
+            certificate-authority-data: ${(new Buffer(cert['ca-crt'])).toString('base64')}
+            server: https://${process.env.KUBERNETES_API_SERVER}
+          name: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
+        contexts:
+        - context:
+            cluster: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
+            namespace: kube-system
+            user: alamo-${process.env.KUBERNETES_CONTEXT}-admin
+          name: ${process.env.KUBERNETES_CONTEXT}
+        current-context: ${process.env.KUBERNETES_CONTEXT}
+        kind: Config
+        preferences: {}
+        users:
+        - name: alamo-${process.env.KUBERNETES_CONTEXT}-admin
+          user:
+            token: ${token.token}`)
+    }
   }
   if(process.env.KUBERNETES_CONTEXT) {
     kc.setCurrentContext(process.env.KUBERNETES_CONTEXT)
   }
-  kc.applyToRequest({forever:true})
+  kc.applyToRequest({forever:true, headers:{}})
 }
 
 function done(message, launch, err) {
