@@ -31,6 +31,7 @@ OR alternatively, you can instruct appication watcher to read from a token:
 * `VAULT_ADDR` - The API host (not URL) for Hashicorp vault.
 * `VAULT_TOKEN` - The token to use for vault
 * `KUBERNETES_API_SERVER` - The API host (not URL) for kubernetes.
+* `KUBERNETES_CERT_SECRET` - The path where to read in kubernetes cert secrets within vault (e.g, `/secret/kubernetes/certs`), see Kubernetes Certs for more information on format.
 * `KUBERNETES_TOKEN_SECRET` - The path where to read in kubernetes token secrets within vault (e.g, `/secret/kubernetes/token`), the value should have a field `token` containing the token for kubernetes.
 * `KUBERNETES_API_VERSION` - Kubernetes API version to use, this should be set to v1 as no other version is currently supported.
 * `KUBERNETES_CONTEXT` - If multiple contexts are available within a store, which to use.

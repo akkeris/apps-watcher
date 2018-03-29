@@ -157,7 +157,7 @@ function crashed(type, obj) {
   let creating = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
   let image = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
   let readiness = command.length === 0 && crashed.length === 0 && premature.length === 0 && image.length === 0 && (obj.status.containerStatuses ? obj.status.conditions.filter((x) => dyno_type === 'web' && x.type === 'Ready' && x.status === 'False' && x.reason === 'ContainersNotReady') : [])
-  let scheduled = obj.status.phase === 'Pending' && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
+  let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
   let restarts = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
   if(typeof restarts === 'string') {
     restarts = parseInt(restarts, 10)
