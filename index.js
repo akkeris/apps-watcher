@@ -21,7 +21,6 @@ setInterval(() => {
   }
 }, 100)
 
-
 function send(payload) {
   (process.env.NOTIFY || '')
     .split(',')
@@ -137,6 +136,7 @@ function crashed(type, obj) {
   let dyno = obj.metadata.name.replace(`${obj.metadata.labels.name}-`, '')
   let dyno_type = obj.metadata.labels.name.indexOf('--') === -1 ? 'web' : obj.metadata.labels.name.substring(obj.metadata.labels.name.indexOf('--') + 2)
   let reasons = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.state.terminated ? x.state.terminated.reason : '').join(',') : []
+
   let oom = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'OOMKilled') : []
   let crashed = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && 
       x.state.terminated.reason === 'Error' && 
@@ -156,17 +156,31 @@ function crashed(type, obj) {
   let premature = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'Completed') : []
   let creating = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
   let image = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
-  let readiness = command.length === 0 && crashed.length === 0 && premature.length === 0 && image.length === 0 && (obj.status.containerStatuses ? obj.status.conditions.filter((x) => dyno_type === 'web' && x.type === 'Ready' && x.status === 'False' && x.reason === 'ContainersNotReady') : [])
+  let readiness = command.length === 0 && 
+                  crashed.length === 0 && 
+                  premature.length === 0 && 
+                  image.length === 0 && 
+                  creating.length === 0 &&
+                  (obj.status.conditions ? 
+                    obj.status.conditions.filter((x) => 
+                      dyno_type === 'web' && 
+                      x.type === 'Ready' && 
+                      x.status === 'False' && 
+                      x.reason === 'ContainersNotReady'
+                    ) : [])
   let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
   let restarts = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
+  
   if(typeof restarts === 'string') {
     restarts = parseInt(restarts, 10)
   }
+
   let restarting = readiness.length > 0 && creating.length > 0 ? true : false
   
   if(reported_crashed[app + dyno] && creating.length === 0) {
     return
   }
+
   if(oom.length === 0 && crashed.length === 0 && command.length === 0 && premature.length === 0 && readiness.length === 0 && image.length === 0 && !scheduled) {
     return
   }
