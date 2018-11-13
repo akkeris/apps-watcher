@@ -1,3 +1,4 @@
+const assert = require('assert')
 
 module.exports = [
     // no error, just starting (0)
@@ -992,149 +993,149 @@ module.exports = [
     },
     // not responding on port error (7)
     {
-      "test": "crashed",
-      "test-phase": "H20",
-      "kind": "Pod",
+      "test":"crashed",
+      "test-phase":"H20",
       "apiVersion": "v1",
+      "kind": "Pod",
       "metadata": {
-        "name": "dnsmonitor-1297707119-rdtc3",
-        "generateName": "dnsmonitor-1297707119-",
-        "namespace": "abcd",
-        "selfLink": "/api/v1/namespaces/abcd/pods/dnsmonitor-1297707119-rdtc3",
-        "uid": "c7645857-2d05-11e8-a31d-02f50d315afc",
-        "resourceVersion": "104621742",
-        "creationTimestamp": "2018-03-21T12:45:47Z",
-        "deletionTimestamp": "2018-03-21T12:48:26Z",
-        "deletionGracePeriodSeconds": 0,
-        "labels": {
-          "name": "dnsmonitor",
-          "pod-template-hash": "1297707119"
-        },
-        "annotations": {
-          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"ReplicaSet\",\"namespace\":\"abcd\",\"name\":\"dnsmonitor-1297707119\",\"uid\":\"c761ea1c-2d05-11e8-a31d-02f50d315afc\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"104621037\"}}\n"
-        },
-        "ownerReferences": [
-          {
-            "apiVersion": "extensions/v1beta1",
-            "kind": "ReplicaSet",
-            "name": "dnsmonitor-1297707119",
-            "uid": "c761ea1c-2d05-11e8-a31d-02f50d315afc",
-            "controller": true,
-            "blockOwnerDeletion": true
-          }
-        ]
+          "annotations": {
+              "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"ReplicaSet\",\"namespace\":\"iakkeris\",\"name\":\"docsbeta-3934880710\",\"uid\":\"a33cc590-e77c-11e8-9b92-06fe87e8b7fa\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"586035660\"}}\n"
+          },
+          "creationTimestamp": "2018-11-13T19:45:13Z",
+          "generateName": "docsbeta-3934880710-",
+          "labels": {
+              "app": "docsbeta",
+              "name": "docsbeta",
+              "pod-template-hash": "3934880710",
+              "version": "v1"
+          },
+          "name": "docsbeta-3934880710-r7731",
+          "namespace": "iakkeris",
+          "ownerReferences": [
+              {
+                  "apiVersion": "extensions/v1beta1",
+                  "blockOwnerDeletion": true,
+                  "controller": true,
+                  "kind": "ReplicaSet",
+                  "name": "docsbeta-3934880710",
+                  "uid": "a33cc590-e77c-11e8-9b92-06fe87e8b7fa"
+              }
+          ],
+          "resourceVersion": "586035716",
+          "selfLink": "/api/v1/namespaces/iakkeris/pods/docsbeta-3934880710-r7731",
+          "uid": "a33fb135-e77c-11e8-9b92-06fe87e8b7fa"
       },
       "spec": {
-        "volumes": [
-          {
-            "name": "default-token-rf03t",
-            "secret": {
-              "secretName": "default-token-rf03t",
-              "defaultMode": 420
-            }
-          }
-        ],
-        "containers": [
-          {
-            "name": "dnsmonitor",
-            "image": "foo.akkeris.io/akkeris/dnsmonitor-272c24e1-7368-4a45-a65a-d6493f956400:0.2",
-            "ports": [
+          "containers": [
               {
-                "containerPort": 9001,
-                "protocol": "TCP"
+                  "env": [ ],
+                  "image": "/octanner/docsbeta-d63ce1a7-fcdf-4085-8022-c2f9a939f4b9:0.12",
+                  "imagePullPolicy": "Always",
+                  "name": "docsbeta",
+                  "ports": [
+                      {
+                          "containerPort": 9002,
+                          "protocol": "TCP"
+                      }
+                  ],
+                  "readinessProbe": {
+                      "failureThreshold": 3,
+                      "periodSeconds": 10,
+                      "successThreshold": 1,
+                      "tcpSocket": {
+                          "port": 9002
+                      },
+                      "timeoutSeconds": 1
+                  },
+                  "resources": {
+                      "limits": {
+                          "memory": "256Mi"
+                      },
+                      "requests": {
+                          "memory": "128Mi"
+                      }
+                  },
+                  "securityContext": {
+                      "capabilities": {}
+                  },
+                  "terminationMessagePath": "/dev/termination-log",
+                  "terminationMessagePolicy": "File",
+                  "volumeMounts": [
+                      {
+                          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                          "name": "default-token-3b75c",
+                          "readOnly": true
+                      }
+                  ]
               }
-            ],
-            "env": [],
-            "resources": {
-              "limits": {
-                "memory": "256Mi"
-              },
-              "requests": {
-                "memory": "256Mi"
-              }
-            },
-            "volumeMounts": [
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "imagePullSecrets": [
               {
-                "name": "default-token-rf03t",
-                "readOnly": true,
-                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+                  "name": "foo"
               }
-            ],
-            "readinessProbe": {
-              "tcpSocket": {
-                "port": 9001
-              },
-              "timeoutSeconds": 1,
-              "periodSeconds": 10,
-              "successThreshold": 1,
-              "failureThreshold": 3
-            },
-            "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File",
-            "imagePullPolicy": "Always"
-          }
-        ],
-        "restartPolicy": "Always",
-        "terminationGracePeriodSeconds": 30,
-        "dnsPolicy": "Default",
-        "serviceAccountName": "default",
-        "serviceAccount": "default",
-        "nodeName": "foobar.us-west-2.compute.internal",
-        "securityContext": {},
-        "imagePullSecrets": [
-          {
-            "name": "foo.akkeris.io-akkeris"
-          }
-        ],
-        "schedulerName": "default-scheduler"
+          ],
+          "nodeName": "",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "serviceAccount": "default",
+          "serviceAccountName": "default",
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+              {
+                  "name": "default-token-3b75c",
+                  "secret": {
+                      "defaultMode": 420,
+                      "secretName": "default-token-3b75c"
+                  }
+              }
+          ]
       },
       "status": {
-        "phase": "Running",
-        "conditions": [
-          {
-            "type": "Initialized",
-            "status": "True",
-            "lastProbeTime": null,
-            "lastTransitionTime": "2018-03-21T12:45:47Z"
-          },
-          {
-            "type": "Ready",
-            "status": "False",
-            "lastProbeTime": null,
-            "lastTransitionTime": "2018-03-21T12:48:57Z",
-            "reason": "ContainersNotReady",
-            "message": "containers with unready status: [dnsmonitor]"
-          },
-          {
-            "type": "PodScheduled",
-            "status": "True",
-            "lastProbeTime": null,
-            "lastTransitionTime": "2018-03-21T12:45:47Z"
-          }
-        ],
-        "hostIP": "10.11.22.1",
-        "startTime": "2018-03-21T12:45:47Z",
-        "containerStatuses": [
-          {
-            "name": "dnsmonitor",
-            "state": {
-              "terminated": {
-                "exitCode": 137,
-                "reason": "Error",
-                "startedAt": "2018-03-21T12:45:53Z",
-                "finishedAt": "2018-03-21T12:48:56Z",
-                "containerID": "docker://8e673f9b5026265fd67ac9023515b05bc51d09ff40316b1966a78352a8d5571e"
+          "conditions": [
+              {
+                  "lastProbeTime": null,
+                  "lastTransitionTime": "2018-11-13T19:45:13Z",
+                  "status": "True",
+                  "type": "Initialized"
+              },
+              {
+                  "lastProbeTime": null,
+                  "lastTransitionTime": "2018-11-13T19:45:13Z",
+                  "message": "containers with unready status: [docsbeta]",
+                  "reason": "ContainersNotReady",
+                  "status": "False",
+                  "type": "Ready"
+              },
+              {
+                  "lastProbeTime": null,
+                  "lastTransitionTime": "2018-11-13T19:45:13Z",
+                  "status": "True",
+                  "type": "PodScheduled"
               }
-            },
-            "lastState": {},
-            "ready": false,
-            "restartCount": 0,
-            "image": "foo.akkeris.io/akkeris/dnsmonitor-272c24e1-7368-4a45-a65a-d6493f956400:0.2",
-            "imageID": "docker-pullable://foo.akkeris.io/akkeris/dnsmonitor-272c24e1-7368-4a45-a65a-d6493f956400@sha256:6c1e35a41a620562e0c16e072356cfb34c55c60a67b9736750af8204868aab77",
-            "containerID": "docker://8e673f9b5026265fd67ac9023515b05bc51d09ff40316b1966a78352a8d5571e"
-          }
-        ],
-        "qosClass": "Burstable"
+          ],
+          "containerStatuses": [
+              {
+                  "containerID": "docker://27fe9a47eda96cffec1478f38d913e47d096614d2101ad74df2000f8fcc3deb9",
+                  "image": "",
+                  "imageID": "",
+                  "lastState": {},
+                  "name": "docsbeta",
+                  "ready": false,
+                  "restartCount": 0,
+                  "state": {
+                      "running": {
+                          "startedAt": "2018-11-13T19:45:16Z"
+                      }
+                  }
+              }
+          ],
+          "hostIP": "10.84.16.125",
+          "phase": "Running",
+          "podIP": "10.2.81.4",
+          "qosClass": "Burstable",
+          "startTime": "2018-11-13T19:45:13Z"
       }
     },
     // cannot schedule due to nodes being full (8)
@@ -1246,19 +1247,472 @@ module.exports = [
         ],
         "qosClass": "Burstable"
       }
+    },
+    // Nothing wrong just a container being created (9)
+    {
+      "test": "none",
+      "test-phase": "starting",
+      "kind": "Pod",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "api--worker-7f594565c-5hhzn",
+        "generateName": "api--worker-7f594565c-",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/pods/api--worker-7f594565c-5hhzn",
+        "uid": "d88891ee-e776-11e8-8ccf-062291b3f7b2",
+        "resourceVersion": "39487391",
+        "creationTimestamp": "2018-11-13T19:03:45Z",
+        "labels": {
+          "app": "api--worker",
+          "name": "api--worker",
+          "pod-template-hash": "391501217",
+          "version": "v1"
+        },
+        "annotations": {
+          "cni.projectcalico.org/podIP": "10.2.11.106/32"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "ReplicaSet",
+            "name": "api--worker-7f594565c",
+            "uid": "d8819e67-e776-11e8-8ccf-062291b3f7b2",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "default-token-ftg9z",
+            "secret": {
+              "secretName": "default-token-ftg9z",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "api--worker",
+            "image": "/api-fa2b535d-de4d-4a14-be36-d44af53b59e3:0.6",
+            "command": [
+              "node",
+              "worker.js"
+            ],
+            "env": [ ],
+            "resources": {
+              "limits": {
+                "memory": "256Mi"
+              },
+              "requests": {
+                "memory": "256Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "default-token-ftg9z",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always",
+            "securityContext": {
+              "capabilities": {}
+            }
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "",
+        "securityContext": {},
+        "imagePullSecrets": [
+          {
+            "name": "foo"
+          }
+        ],
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          },
+          {
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          }
+        ],
+        "priority": 0
+      },
+      "status": {
+        "phase": "Pending",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-11-13T19:03:46Z"
+          },
+          {
+            "type": "Ready",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-11-13T19:03:46Z",
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [api--worker]"
+          },
+          {
+            "type": "ContainersReady",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": null,
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [api--worker]"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-11-13T19:03:45Z"
+          }
+        ],
+        "hostIP": "10.84.15.9",
+        "startTime": "2018-11-13T19:03:46Z",
+        "containerStatuses": [
+          {
+            "name": "api--worker",
+            "state": {
+              "waiting": {
+                "reason": "ContainerCreating"
+              }
+            },
+            "lastState": {},
+            "ready": false,
+            "restartCount": 0,
+            "image": "api-fa2b535d-de4d-4a14-be36-d44af53b59e3:0.6",
+            "imageID": ""
+          }
+        ],
+        "qosClass": "Burstable"
+      }
+    },
+    // Nothing wrong just a release that occured (10)
+    {
+      "test": "none",
+      "kind": "Pod",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "useraccount-1058445535-c5qpt",
+        "generateName": "useraccount-1058445535-",
+        "namespace": "perf-stg",
+        "selfLink": "/api/v1/namespaces/perf-stg/pods/useraccount-1058445535-c5qpt",
+        "uid": "82ed4535-27c1-11e8-8f72-02638d829128",
+        "resourceVersion": "398270277",
+        "creationTimestamp": "2018-03-14T19:54:31Z",
+        "labels": {
+          "name": "useraccount",
+          "pod-template-hash": "1058445535"
+        },
+        "annotations": {
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"ReplicaSet\",\"namespace\":\"perf-stg\",\"name\":\"useraccount-1058445535\",\"uid\":\"82e975fa-27c1-11e8-8f72-02638d829128\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"393536473\"}}\n"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "ReplicaSet",
+            "name": "useraccount-1058445535",
+            "uid": "82e975fa-27c1-11e8-8f72-02638d829128",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "default-token-yudxj",
+            "secret": {
+              "secretName": "default-token-yudxj",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "useraccount",
+            "image": "foo.akkeris.io/akkeris/useraccount-84a01d67-27eb-4ad2-92ea-30b89f722248:0.33",
+            "ports": [
+              {
+                "containerPort": 9000,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [],
+            "resources": {
+              "limits": {
+                "memory": "2Gi"
+              },
+              "requests": {
+                "memory": "1536Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "default-token-yudxj",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "readinessProbe": {
+              "tcpSocket": {
+                "port": 9000
+              },
+              "timeoutSeconds": 1,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "Default",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "foobar.us-west-2.compute.internal",
+        "securityContext": {},
+        "imagePullSecrets": [
+          {
+            "name": "foo.akkeris.io-akkeris"
+          }
+        ],
+        "schedulerName": "default-scheduler"
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-03-14T19:54:31Z"
+          },
+          {
+            "type": "Ready",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-03-14T19:54:31Z",
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [useraccount]"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-03-14T19:54:31Z"
+          }
+        ],
+        "hostIP": "10.11.11.11",
+        "podIP": "10.11.22.22",
+        "startTime": "2018-03-14T19:54:31Z",
+        "containerStatuses": [
+          {
+            "name": "useraccount",
+            "state": {
+              "waiting": {
+                "reason": "CrashLoopBackOff",
+                "message": "Back-off 2m40s restarting failed container=useraccount pod=useraccount-1058445535-c5qpt_perf-stg(82ed4535-27c1-11e8-8f72-02638d829128)"
+              }
+            },
+            "lastState": {
+              "terminated": {
+                "exitCode": 143,
+                "reason": "Error",
+                "startedAt": "2018-03-20T14:50:07Z",
+                "finishedAt": "2018-03-20T14:50:08Z",
+                "containerID": "docker://b916f62ae7bd49607781b7307113c4dfd7836d2a5e0ea6e72436f861b5241c29"
+              }
+            },
+            "ready": false,
+            "restartCount": 1,
+            "image": "foo.akkeris.io/akkeris/useraccount-84a01d67-27eb-4ad2-92ea-30b89f722248:0.33",
+            "imageID": ""
+          }
+        ],
+        "qosClass": "Burstable"
+      }
+    },
+    // Nothing wrong just a release that occured (11)
+    {
+      "test": "none",
+      "kind": "Pod",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "useraccount-1058445535-c5qpt",
+        "generateName": "useraccount-1058445535-",
+        "namespace": "perf-stg",
+        "selfLink": "/api/v1/namespaces/perf-stg/pods/useraccount-1058445535-c5qpt",
+        "uid": "82ed4535-27c1-11e8-8f72-02638d829128",
+        "resourceVersion": "398270277",
+        "creationTimestamp": "2018-03-14T19:54:31Z",
+        "labels": {
+          "name": "useraccount",
+          "pod-template-hash": "1058445535"
+        },
+        "annotations": {
+          "kubernetes.io/created-by": "{\"kind\":\"SerializedReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"ReplicaSet\",\"namespace\":\"perf-stg\",\"name\":\"useraccount-1058445535\",\"uid\":\"82e975fa-27c1-11e8-8f72-02638d829128\",\"apiVersion\":\"extensions\",\"resourceVersion\":\"393536473\"}}\n"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "extensions/v1beta1",
+            "kind": "ReplicaSet",
+            "name": "useraccount-1058445535",
+            "uid": "82e975fa-27c1-11e8-8f72-02638d829128",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "default-token-yudxj",
+            "secret": {
+              "secretName": "default-token-yudxj",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "useraccount",
+            "image": "foo.akkeris.io/akkeris/useraccount-84a01d67-27eb-4ad2-92ea-30b89f722248:0.33",
+            "ports": [
+              {
+                "containerPort": 9000,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [],
+            "resources": {
+              "limits": {
+                "memory": "2Gi"
+              },
+              "requests": {
+                "memory": "1536Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "default-token-yudxj",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "readinessProbe": {
+              "tcpSocket": {
+                "port": 9000
+              },
+              "timeoutSeconds": 1,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "Default",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "foobar.us-west-2.compute.internal",
+        "securityContext": {},
+        "imagePullSecrets": [
+          {
+            "name": "foo.akkeris.io-akkeris"
+          }
+        ],
+        "schedulerName": "default-scheduler"
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-03-14T19:54:31Z"
+          },
+          {
+            "type": "Ready",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-03-14T19:54:31Z",
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [useraccount]"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2018-03-14T19:54:31Z"
+          }
+        ],
+        "hostIP": "10.11.11.11",
+        "podIP": "10.11.22.22",
+        "startTime": "2018-03-14T19:54:31Z",
+        "containerStatuses": [
+          {
+            "name": "useraccount",
+            "state": {
+              "terminated": {
+                "exitCode":143,
+                "reason": "Error",
+                "message": "Back-off 2m40s restarting failed container=useraccount pod=useraccount-1058445535-c5qpt_perf-stg(82ed4535-27c1-11e8-8f72-02638d829128)"
+              }
+            },
+            "lastState": {},
+            "ready": false,
+            "restartCount": 1,
+            "image": "foo.akkeris.io/akkeris/useraccount-84a01d67-27eb-4ad2-92ea-30b89f722248:0.33",
+            "imageID": ""
+          }
+        ],
+        "qosClass": "Burstable"
+      }
     }
 ]
 
 if(process.env.TEST_MODE) {
     const {released, crashed } = require('../index.js')
     module.exports.forEach((item, ndx) => {
+      try {
         let result = crashed('MODIFIED', item)
         if(item.test === 'none') {
-            console.assert(!result, 'The result returned an error when none was expected.', item, result)
+            assert.ok(!result, 'The result returned an error when none was expected.', item, result)
         } else {
-            console.assert(result.code === item["test-phase"], 'The result code failed:', result.code, '!==', item["test-phase"], item['test'])
+            assert.ok(result.code === item["test-phase"], 'The result code failed:', result.code, '!==', item["test-phase"], item['test'])
         }
         console.log('Test', ndx, 'passed.')
+      } catch (e) {
+        console.log('Test', ndx, 'failed.')
+        console.log(e)
+      }
     })
     process.exit(0)
 }

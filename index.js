@@ -2,7 +2,8 @@ const k8s = require('@kubernetes/client-node'),
       vault = require('node-vault'), 
       url = require('url'), 
       http = require('https'), 
-      https = require('https')
+      https = require('https'),
+      assert = require('assert')
 const kc = new k8s.KubeConfig()
 const Watch = require('./watch.js').Watch
 
@@ -40,26 +41,26 @@ async function connect_kube() {
   if(!process.env.KUBERNETES_API_SERVER) {
     kc.loadFromFile(process.env['HOME'] + '/.kube/config');
   } else {
-    console.assert(process.env.VAULT_ADDR, 'The VAULT_ADDR was not found.')
+    assert.ok(process.env.VAULT_ADDR, 'The VAULT_ADDR was not found.')
     if(!process.env.VAULT_ADDR.startsWith('http')) {
       process.env.VAULT_ADDR = 'https://' + process.env.VAULT_ADDR
     }
-    console.assert(process.env.VAULT_ADDR.startsWith('http'), 'VAULT_ADDR should be a url not a host.')
-    console.assert(process.env.VAULT_TOKEN, 'The VAULT_TOKEN was not found.')
-    console.assert(process.env.KUBERNETES_API_VERSION, 'The KUBERNETES_API_VERSION value was not found.')
-    console.assert(process.env.KUBERNETES_CONTEXT, 'The KUBERNETES_CONTEXT value was not found.')
-    console.assert(process.env.KUBERNETES_API_SERVER, 'The KUBERNETES_API_SERVER value was not found.')
+    assert.ok(process.env.VAULT_ADDR.startsWith('http'), 'VAULT_ADDR should be a url not a host.')
+    assert.ok(process.env.VAULT_TOKEN, 'The VAULT_TOKEN was not found.')
+    assert.ok(process.env.KUBERNETES_API_VERSION, 'The KUBERNETES_API_VERSION value was not found.')
+    assert.ok(process.env.KUBERNETES_CONTEXT, 'The KUBERNETES_CONTEXT value was not found.')
+    assert.ok(process.env.KUBERNETES_API_SERVER, 'The KUBERNETES_API_SERVER value was not found.')
     let vc = vault({apiVersion:'v1', endpoint:process.env.VAULT_ADDR, token:process.env.VAULT_TOKEN})
     if(!process.env.KUBERNETES_TOKEN_SECRET) {
       let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
-      console.assert(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
-      console.assert(cert['admin-crt'], 'The admin-crt was not found within the vault kubernetes secret')
-      console.assert(cert['admin-key'], 'The admin-key was not found within the vault kubernetes secret')
+      assert.ok(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
+      assert.ok(cert['admin-crt'], 'The admin-crt was not found within the vault kubernetes secret')
+      assert.ok(cert['admin-key'], 'The admin-key was not found within the vault kubernetes secret')
       kc.loadFromString(`
         apiVersion: ${process.env.KUBERNETES_API_VERSION}
         clusters:
         - cluster:
-            certificate-authority-data: ${(new Buffer(cert['ca-crt'])).toString('base64')}
+            certificate-authority-data: ${(Buffer.from(cert['ca-crt'], 'utf8')).toString('base64')}
             server: https://${process.env.KUBERNETES_API_SERVER}
           name: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
         contexts:
@@ -74,18 +75,18 @@ async function connect_kube() {
         users:
         - name: alamo-${process.env.KUBERNETES_CONTEXT}-admin
           user:
-            client-certificate-data: ${(new Buffer(cert['admin-crt'])).toString('base64')}
-            client-key-data: ${(new Buffer(cert['admin-key'])).toString('base64')}`)
+            client-certificate-data: ${(Buffer.from(cert['admin-crt'], 'utf8')).toString('base64')}
+            client-key-data: ${(Buffer.from(cert['admin-key'], 'utf8')).toString('base64')}`)
     } else {
       let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
       let token = (await vc.read(process.env.KUBERNETES_TOKEN_SECRET)).data
-      console.assert(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
+      assert.ok(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
       kc.loadFromString(`
         apiVersion: ${process.env.KUBERNETES_API_VERSION}
         clusters:
         - cluster:
             insecure-skip-tls-verify: 'true'
-            certificate-authority-data: ${(new Buffer(cert['ca-crt'])).toString('base64')}
+            certificate-authority-data: ${(Buffer.from(cert['ca-crt'], 'utf8')).toString('base64')}
             server: https://${process.env.KUBERNETES_API_SERVER}
           name: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
         contexts:
@@ -120,6 +121,32 @@ function done(message, launch, err) {
 let reported_crashed = {}
 setInterval(() => { reported_crashed = {} }, 10 * 60 * 1000)
 
+function exit_code_indicates_crash(exit_code) {
+  // http://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
+  // https://unix.stackexchange.com/questions/110348/how-do-i-get-the-list-of-exit-codes-and-or-return-codes-and-meaning-for-a-comm
+  // Exit code        0  = successful
+  // Exit code        1  = unsuccessful
+  // Exit code      126  = command found, but not executable
+  // Exit code      127  = command not found
+  // Exit code      128  = invalid exit code passed
+  // Exit code      130  = SIGUSR sent
+  // Exit code 9 OR 137  = SIGKILL sent 
+  // Exit code 15 OR 143 = SIGTERM sent
+  // Exit code 23 OR 141 = SIGPIPE sent
+  // 
+  
+  if (exit_code !== 0 &&   // Successful exit
+      exit_code !== 126 && // Ignore, we catch this other places, its not technically a crash
+      exit_code !== 127 && // Ignore, we catch this other places, its not technically a crash
+      exit_code !== 130 && // Ignore this, its an explicit stop sent by kubernetes 
+      exit_code !== 143 && // Ignore this, its the SIGTERM sent by kubernetes
+      exit_code !== 15) {  // Ignore this, its the SIGTERM sent without a bash termianl by kubernetes
+    return true  
+  } else {
+    return false
+  }
+}
+
 function crashed(type, obj) {
   if(!obj.metadata || !obj.metadata.labels || !obj.metadata.labels.name || !obj.status) {
     return
@@ -140,12 +167,13 @@ function crashed(type, obj) {
   let oom = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'OOMKilled') : []
   let crashed = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && 
       x.state.terminated.reason === 'Error' && 
-      x.state.terminated.exitCode !== 137 || 
+      x.state.terminated.exitCode !== 137 && 
+      exit_code_indicates_crash(x.state.terminated.exitCode) || 
       x.state.waiting && 
       x.state.waiting.reason === 'CrashLoopBackOff' && 
       x.lastState &&
       x.lastState.terminated &&
-      x.lastState.terminated.exitCode !== 127
+      exit_code_indicates_crash(x.lastState.terminated.exitCode)
     ) : []
   let command = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && 
     x.state.terminated.reason === 'ContainerCannotRun' || 
@@ -154,23 +182,12 @@ function crashed(type, obj) {
     x.lastState.terminated && 
     x.lastState.terminated.reason === 'ContainerCannotRun') : []
   let premature = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'Completed') : []
-  let creating = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
-  let image = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
-  let readiness = command.length === 0 && 
-                  crashed.length === 0 && 
-                  premature.length === 0 && 
-                  image.length === 0 && 
-                  creating.length === 0 &&
-                  (obj.status.conditions ? 
-                    obj.status.conditions.filter((x) => 
-                      dyno_type === 'web' && 
-                      x.type === 'Ready' && 
-                      x.status === 'False' && 
-                      x.reason === 'ContainersNotReady'
-                    ) : [])
+  let creating = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
+  let image = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
   let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
   let restarts = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
-  
+  let readiness = crashed.length === 0 && obj.status.phase === 'Running' && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.running && x.ready === false && dyno_type === 'web') : []
+
   if(typeof restarts === 'string') {
     restarts = parseInt(restarts, 10)
   }
@@ -219,7 +236,7 @@ function crashed(type, obj) {
     "crashed_at":(new Date(Date.now())).toISOString()
   }
 
-  process.env.DEBUG && console.log("[debug] app crashed:", JSON.stringify(payload, null, 2))
+  process.env.DEBUG && console.log("[debug] app crashed:", JSON.stringify(payload, null, 2), 'type', JSON.stringify(type, null, 2), 'obj', JSON.stringify(obj, null, 2))
   
   if(process.env.TEST_MODE) {
     return payload
@@ -236,7 +253,7 @@ function crashed_watch() {
 
 
 let last_release = {}
-function released(type, obj) {
+function released(type, obj) {  
   // listen to the right types of messages, check the structure for needed
   // fields, this may have a more explicit way of detecting the right types
   // of messages, but i'm not sure what it is :/.
@@ -261,9 +278,8 @@ function released(type, obj) {
   if (
     image !== last_release[app] && 
     obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True' ).length > 0 && 
-    // must be an observation of the current generation
     obj.status.observedGeneration === obj.metadata.generation &&
-    !obj.status.unavailableReplicas &&
+    obj.availableReplicas === obj.readyReplicas === obj.replicas &&
     type === 'MODIFIED'
   ) {
     
@@ -280,6 +296,9 @@ function released(type, obj) {
       "space":{
         "name":space_name
       },
+      "dyno":{
+        "type":dyno_type,
+      },
       "key":app,
       "action":"released",
       "slug":{
@@ -287,9 +306,8 @@ function released(type, obj) {
       },
       "released_at":(new Date(Date.now())).toISOString()
     }
-    if(process.env.DEBUG) {
-      console.log("[debug] app released:", JSON.stringify(payload, null, 2))
-    }
+    process.env.DEBUG && console.log("[debug] app released:", JSON.stringify(payload, null, 2))
+
     if(process.env.TEST_MODE) {
       return payload
     } else {
