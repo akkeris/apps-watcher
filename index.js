@@ -119,7 +119,7 @@ function done(message, launch, err) {
 }
 
 let reported_crashed = {}
-setInterval(() => { reported_crashed = {} }, 10 * 60 * 1000)
+setInterval(() => { reported_crashed = {} }, 30 * 60 * 1000)
 
 function exit_code_indicates_crash(exit_code) {
   // http://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
@@ -155,6 +155,7 @@ function crashed(type, obj) {
   let app_name = obj.metadata.labels.name.substring(0, obj.metadata.labels.name.indexOf('--') === -1 ? obj.metadata.labels.name.length : obj.metadata.labels.name.indexOf('--'))
   let space_name = obj.metadata.namespace
   let app = `${app_name}-${space_name}`
+
   if(app.endsWith('-taas') || app.startsWith("oct-")) {
     return
   }
@@ -186,7 +187,7 @@ function crashed(type, obj) {
   let image = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
   let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
   let restarts = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
-  let readiness = crashed.length === 0 && obj.status.phase === 'Running' && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.running && x.ready === false && dyno_type === 'web') : []
+  let readiness = (crashed.length === 0 && obj.status.phase === 'Running' && obj.status.containerStatuses) ? obj.status.containerStatuses.filter((x) => x.state.running && x.state.running.startedAt && (((new Date(x.state.running.startedAt)).getTime() + (60 * 1000)) < Date.now()) && x.ready === false && dyno_type === 'web') : []
 
   if(typeof restarts === 'string') {
     restarts = parseInt(restarts, 10)
@@ -253,7 +254,7 @@ function crashed_watch() {
 
 
 let last_release = {}
-function released(type, obj) {  
+function released(type, obj) {
   // listen to the right types of messages, check the structure for needed
   // fields, this may have a more explicit way of detecting the right types
   // of messages, but i'm not sure what it is :/.
@@ -269,51 +270,65 @@ function released(type, obj) {
   let space_name = obj.metadata.namespace
   let app = `${app_name}-${space_name}`
   let image = obj.spec.template.spec.containers[0].image
+  
+
+  process.env.DEBUG && console.log('received released', type, JSON.stringify(obj, null, 2))
 
   if(type === 'ADDED') {
     last_release[app] = image
     return
   }
 
-  if (
-    image !== last_release[app] && 
-    obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True' ).length > 0 && 
-    obj.status.observedGeneration === obj.metadata.generation &&
-    obj.availableReplicas === obj.readyReplicas === obj.replicas &&
-    type === 'MODIFIED'
-  ) {
-    
-    if(app.endsWith('-taas') || app.startsWith("oct-")) {
-      return
-    }
+  if(image === last_release[app]) {
+    return
+  }
 
-    let dyno_type = obj.metadata.labels.name.indexOf('--') === -1 ? 'web' : obj.metadata.labels.name.substring(obj.metadata.labels.name.indexOf('--') + 2)
-    last_release[app] = image
-    let payload = {
-      "app":{
-        "name":app_name
-      },
-      "space":{
-        "name":space_name
-      },
-      "dyno":{
-        "type":dyno_type,
-      },
-      "key":app,
-      "action":"released",
-      "slug":{
-        image,
-      },
-      "released_at":(new Date(Date.now())).toISOString()
-    }
-    process.env.DEBUG && console.log("[debug] app released:", JSON.stringify(payload, null, 2))
+  if(obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True' ).length === 0) {
+    return
+  }
 
-    if(process.env.TEST_MODE) {
-      return payload
-    } else {
-      console.log(`** ${app} released ${image}`)
-      send(payload)
-    }
+  if(obj.status.observedGeneration !== obj.metadata.generation) {
+    return
+  }
+
+  if(obj.status.availableReplicas != obj.status.readyReplicas || obj.status.readyReplicas != obj.status.replicas || obj.status.replicas != obj.status.updatedReplicas) {
+    return
+  }
+
+  if(type !== 'MODIFIED') {
+    return
+  }
+
+  if(app.endsWith('-taas') || app.startsWith("oct-")) {
+    return
+  }
+
+  let dyno_type = obj.metadata.labels.name.indexOf('--') === -1 ? 'web' : obj.metadata.labels.name.substring(obj.metadata.labels.name.indexOf('--') + 2)
+  last_release[app] = image
+  let payload = {
+    "app":{
+      "name":app_name
+    },
+    "space":{
+      "name":space_name
+    },
+    "dyno":{
+      "type":dyno_type,
+    },
+    "key":app,
+    "action":"released",
+    "slug":{
+      image,
+    },
+    "released_at":(new Date(Date.now())).toISOString()
+  }
+  process.env.DEBUG && console.log("[debug] app released:", JSON.stringify(payload, null, 2))
+
+  if(process.env.TEST_MODE) {
+    return payload
+  } else {
+    console.log(`** ${app} released ${image}`)
+    send(payload)
   }
 }
 
