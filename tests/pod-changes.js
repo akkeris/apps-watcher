@@ -1029,7 +1029,7 @@ module.exports = [
           "containers": [
               {
                   "env": [ ],
-                  "image": "/octanner/docsbeta-d63ce1a7-fcdf-4085-8022-c2f9a939f4b9:0.12",
+                  "image": "/ff/docsbeta-d63ce1a7-fcdf-4085-8022-c2f9a939f4b9:0.12",
                   "imagePullPolicy": "Always",
                   "name": "docsbeta",
                   "ports": [
@@ -1695,7 +1695,190 @@ module.exports = [
         ],
         "qosClass": "Burstable"
       }
+    },
+    // Nothing wrong, just the pod being deleted with the app [12]
+    {
+      "test": "none",
+      "kind": "Pod",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "pl1-6c9b4c75b6-952tg",
+        "generateName": "pl1-6c9b4c75b6-",
+        "namespace": "pipline-test-space1",
+        "selfLink": "/api/v1/namespaces/pipline-test-space1/pods/pl1-6c9b4c75b6-952tg",
+        "uid": "c6090dfe-1f44-11e9-902b-062291b3f7b2",
+        "resourceVersion": "99727471",
+        "creationTimestamp": "2019-01-23T19:26:25Z",
+        "deletionTimestamp": "2019-01-23T19:27:42Z",
+        "deletionGracePeriodSeconds": 30,
+        "labels": {
+          "app": "pl1",
+          "name": "pl1",
+          "pod-template-hash": "2756073162",
+          "version": "v1"
+        },
+        "annotations": {
+          "cni.projectcalico.org/podIP": "10.2.20.28/32"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "default-token-rpmjl",
+            "secret": {
+              "secretName": "default-token-rpmjl",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "pl1",
+            "image": "foobar.xyz.io/ab/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743:0.2",
+            "ports": [
+              {
+                "containerPort": 5000,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "ALAMO_SPACE",
+                "value": "pipline-test-space1"
+              },
+              {
+                "name": "ALAMO_DEPLOYMENT",
+                "value": "pl1"
+              },
+              {
+                "name": "ALAMO_APPLICATION",
+                "value": "pl1-pipline-test-space1"
+              },
+              {
+                "name": "PORT",
+                "value": "5000"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "memory": "256Mi"
+              },
+              "requests": {
+                "memory": "256Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "default-token-rpmjl",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "readinessProbe": {
+              "tcpSocket": {
+                "port": 5000
+              },
+              "timeoutSeconds": 1,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always",
+            "securityContext": {
+              "capabilities": {}
+            }
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "ip-10-84-15-202.us-west-2.compute.internal",
+        "securityContext": {},
+        "imagePullSecrets": [
+          {
+            "name": "ff-xyz"
+          }
+        ],
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          },
+          {
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          }
+        ],
+        "priority": 0
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-01-23T19:26:25Z"
+          },
+          {
+            "type": "Ready",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-01-23T19:27:13Z",
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [pl1]"
+          },
+          {
+            "type": "ContainersReady",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": null,
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [pl1]"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-01-23T19:26:25Z"
+          }
+        ],
+        "hostIP": "10.84.15.202",
+        "podIP": "10.2.20.28",
+        "startTime": "2019-01-23T19:26:25Z",
+        "containerStatuses": [
+          {
+            "name": "pl1",
+            "state": {
+              "terminated": {
+                "exitCode": 0,
+                "reason": "Completed",
+                "startedAt": "2019-01-23T19:26:29Z",
+                "finishedAt": "2019-01-23T19:27:12Z",
+                "containerID": "docker://3663f3d62f74a232344bd94e7b8a5f6a815201a52de3a24b4623b6c469321b2d"
+              }
+            },
+            "lastState": {},
+            "ready": false,
+            "restartCount": 0,
+            "image": "ff.xyz.io/dfy/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743:0.2",
+            "imageID": "docker-pullable://ff.xtz.io/abc/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743@sha256:29128306f29e2105e71a8e28ef9960ff33ff1c1065fcf87c7111e9f38f6d351f",
+            "containerID": "docker://3663f3d62f74a232344bd94e7b8a5f6a815201a52de3a24b4623b6c469321b2d"
+          }
+        ],
+        "qosClass": "Burstable"
+      }
     }
+
 ]
 
 if(process.env.TEST_MODE) {

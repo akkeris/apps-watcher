@@ -133,7 +133,6 @@ function exit_code_indicates_crash(exit_code) {
   // Exit code 9 OR 137  = SIGKILL sent 
   // Exit code 15 OR 143 = SIGTERM sent
   // Exit code 23 OR 141 = SIGPIPE sent
-  // 
   
   if (exit_code !== 0 &&   // Successful exit
       exit_code !== 126 && // Ignore, we catch this other places, its not technically a crash
@@ -160,7 +159,6 @@ function crashed(type, obj) {
     return
   }
 
-  // TODO: detect a zombie pod?
   let dyno = obj.metadata.name.replace(`${obj.metadata.labels.name}-`, '')
   let dyno_type = obj.metadata.labels.name.indexOf('--') === -1 ? 'web' : obj.metadata.labels.name.substring(obj.metadata.labels.name.indexOf('--') + 2)
   let reasons = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.state.terminated ? x.state.terminated.reason : '').join(',') : []
@@ -182,7 +180,7 @@ function crashed(type, obj) {
     x.state.waiting.reason === 'CrashLoopBackOff' && 
     x.lastState.terminated && 
     x.lastState.terminated.reason === 'ContainerCannotRun') : []
-  let premature = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'Completed') : []
+  let premature = (obj.status.containerStatuses && !obj.metadata.deletionTimestamp) ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'Completed') : []
   let creating = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
   let image = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
   let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
@@ -245,13 +243,15 @@ function crashed(type, obj) {
     console.log(`** ${app} crashed ${code} (${description})`)
     send(payload)
   }
-  // TODO: influx db annotation
 }
 
 function crashed_watch() {
   let req = (new Watch(kc)).watch('/api/v1/pods', {}, crashed, done.bind(null, 'crashes', crashed_watch));
 }
 
+function get_dyno_type(name) {
+  return name.indexOf('--') === -1 ? 'web' : name.substring(name.indexOf('--') + 2)
+}
 
 let last_release = {}
 function released(type, obj) {
@@ -260,7 +260,7 @@ function released(type, obj) {
   // of messages, but i'm not sure what it is :/.
   if(!(
     obj.status && obj.status.conditions && 
-    obj.metadata &&  obj.metadata.labels && obj.metadata.labels.name && obj.metadata.namespace &&
+    obj.metadata &&  obj.metadata.labels && obj.metadata.labels.name && obj.metadata.namespace && obj.metadata.creationTimestamp &&
     obj.spec && obj.spec.template && obj.spec.template.spec && obj.spec.template.spec.containers && obj.spec.template.spec.containers[0]
   )) {
     return
@@ -270,41 +270,30 @@ function released(type, obj) {
   let space_name = obj.metadata.namespace
   let app = `${app_name}-${space_name}`
   let image = obj.spec.template.spec.containers[0].image
-  
+  let create_date = new Date(obj.metadata.creationTimestamp)
 
   process.env.DEBUG && console.log('received released', type, JSON.stringify(obj, null, 2))
 
-  if(type === 'ADDED') {
+  if(type === 'ADDED' && (create_date.getTime()  + 1000 * 60 * 5) < Date.now()) {
+    // This is a cached update, it was added to the cache, its not a new deployment.
     last_release[app] = image
     return
   }
 
-  if(image === last_release[app]) {
+  if ( last_release[app] === image || 
+      obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True' ).length === 0 ||
+      obj.status.observedGeneration !== obj.metadata.generation ||
+      obj.status.availableReplicas !== obj.status.readyReplicas || 
+      obj.status.readyReplicas !== obj.status.replicas || 
+      obj.status.replicas !== obj.status.updatedReplicas ||
+      app.endsWith('-taas') || 
+      app.startsWith("oct-")
+  ) {
     return
   }
 
-  if(obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True' ).length === 0) {
-    return
-  }
-
-  if(obj.status.observedGeneration !== obj.metadata.generation) {
-    return
-  }
-
-  if(obj.status.availableReplicas != obj.status.readyReplicas || obj.status.readyReplicas != obj.status.replicas || obj.status.replicas != obj.status.updatedReplicas) {
-    return
-  }
-
-  if(type !== 'MODIFIED') {
-    return
-  }
-
-  if(app.endsWith('-taas') || app.startsWith("oct-")) {
-    return
-  }
-
-  let dyno_type = obj.metadata.labels.name.indexOf('--') === -1 ? 'web' : obj.metadata.labels.name.substring(obj.metadata.labels.name.indexOf('--') + 2)
   last_release[app] = image
+
   let payload = {
     "app":{
       "name":app_name
@@ -313,14 +302,14 @@ function released(type, obj) {
       "name":space_name
     },
     "dyno":{
-      "type":dyno_type,
+      "type": get_dyno_type(obj.metadata.labels.name),
     },
     "key":app,
     "action":"released",
     "slug":{
       image,
     },
-    "released_at":(new Date(Date.now())).toISOString()
+    "released_at":new Date().toISOString()
   }
   process.env.DEBUG && console.log("[debug] app released:", JSON.stringify(payload, null, 2))
 
