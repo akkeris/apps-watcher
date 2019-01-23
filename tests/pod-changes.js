@@ -1029,7 +1029,7 @@ module.exports = [
           "containers": [
               {
                   "env": [ ],
-                  "image": "/octanner/docsbeta-d63ce1a7-fcdf-4085-8022-c2f9a939f4b9:0.12",
+                  "image": "/ff/docsbeta-d63ce1a7-fcdf-4085-8022-c2f9a939f4b9:0.12",
                   "imagePullPolicy": "Always",
                   "name": "docsbeta",
                   "ports": [
@@ -1734,7 +1734,7 @@ module.exports = [
         "containers": [
           {
             "name": "pl1",
-            "image": "quay.octanner.io/octanner/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743:0.2",
+            "image": "foobar.xyz.io/ab/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743:0.2",
             "ports": [
               {
                 "containerPort": 5000,
@@ -1800,7 +1800,7 @@ module.exports = [
         "securityContext": {},
         "imagePullSecrets": [
           {
-            "name": "quay.octanner.io-octanner"
+            "name": "ff-xyz"
           }
         ],
         "schedulerName": "default-scheduler",
@@ -1870,8 +1870,8 @@ module.exports = [
             "lastState": {},
             "ready": false,
             "restartCount": 0,
-            "image": "quay.octanner.io/octanner/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743:0.2",
-            "imageID": "docker-pullable://quay.octanner.io/octanner/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743@sha256:29128306f29e2105e71a8e28ef9960ff33ff1c1065fcf87c7111e9f38f6d351f",
+            "image": "ff.xyz.io/dfy/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743:0.2",
+            "imageID": "docker-pullable://ff.xtz.io/abc/pl1-2c3f9b87-9fbc-424e-894e-96adcf8ad743@sha256:29128306f29e2105e71a8e28ef9960ff33ff1c1065fcf87c7111e9f38f6d351f",
             "containerID": "docker://3663f3d62f74a232344bd94e7b8a5f6a815201a52de3a24b4623b6c469321b2d"
           }
         ],
