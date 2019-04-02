@@ -1,7 +1,7 @@
 const k8s = require('@kubernetes/client-node'), 
       vault = require('node-vault'), 
       url = require('url'), 
-      http = require('https'), 
+      http = require('http'), 
       https = require('https'),
       assert = require('assert')
 const kc = new k8s.KubeConfig()
