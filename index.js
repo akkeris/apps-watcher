@@ -147,11 +147,11 @@ function exit_code_indicates_crash(exit_code) {
 }
 
 function crashed(type, obj) {
-  if(!obj.metadata || !obj.metadata.labels || !obj.metadata.labels.name || !obj.status) {
+  if(!obj.metadata || !obj.metadata.labels || !obj.metadata.name || !obj.status) {
     return
   }
 
-  let app_name = obj.metadata.labels.name.substring(0, obj.metadata.labels.name.indexOf('--') === -1 ? obj.metadata.labels.name.length : obj.metadata.labels.name.indexOf('--'))
+  let app_name = obj.metadata.name.substring(0, obj.metadata.name.indexOf('--') === -1 ? obj.metadata.name.length : obj.metadata.name.indexOf('--'))
   let space_name = obj.metadata.namespace
   let app = `${app_name}-${space_name}`
 
@@ -159,8 +159,8 @@ function crashed(type, obj) {
     return
   }
 
-  let dyno = obj.metadata.name.replace(`${obj.metadata.labels.name}-`, '')
-  let dyno_type = obj.metadata.labels.name.indexOf('--') === -1 ? 'web' : obj.metadata.labels.name.substring(obj.metadata.labels.name.indexOf('--') + 2)
+  let dyno = obj.metadata.name.replace(`${obj.metadata.name}-`, '')
+  let dyno_type = obj.metadata.name.indexOf('--') === -1 ? 'web' : obj.metadata.name.substring(obj.metadata.name.indexOf('--') + 2)
   let reasons = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.state.terminated ? x.state.terminated.reason : '').join(',') : []
 
   let oom = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'OOMKilled') : []
@@ -260,13 +260,13 @@ function released(type, obj) {
   // of messages, but i'm not sure what it is :/.
   if(!(
     obj.status && obj.status.conditions && 
-    obj.metadata &&  obj.metadata.labels && obj.metadata.labels.name && obj.metadata.namespace && obj.metadata.creationTimestamp &&
+    obj.metadata &&  obj.metadata.labels && obj.metadata.name && obj.metadata.namespace && obj.metadata.creationTimestamp &&
     obj.spec && obj.spec.template && obj.spec.template.spec && obj.spec.template.spec.containers && obj.spec.template.spec.containers[0]
   )) {
     return
   }
 
-  let app_name = obj.metadata.labels.name.substring(0, obj.metadata.labels.name.indexOf('--') === -1 ? obj.metadata.labels.name.length : obj.metadata.labels.name.indexOf('--'))
+  let app_name = obj.metadata.name.substring(0, obj.metadata.name.indexOf('--') === -1 ? obj.metadata.name.length : obj.metadata.name.indexOf('--'))
   let space_name = obj.metadata.namespace
   let app = `${app_name}-${space_name}`
   let image = obj.spec.template.spec.containers[0].image
@@ -302,7 +302,7 @@ function released(type, obj) {
       "name":space_name
     },
     "dyno":{
-      "type": get_dyno_type(obj.metadata.labels.name),
+      "type": get_dyno_type(obj.metadata.name),
     },
     "key":app,
     "action":"released",
