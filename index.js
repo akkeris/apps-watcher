@@ -4,6 +4,7 @@ const k8s = require('@kubernetes/client-node'),
       http = require('http'), 
       https = require('https'),
       assert = require('assert')
+      request = require('request')
 const kc = new k8s.KubeConfig()
 const Watch = require('./watch.js').Watch
 
@@ -147,23 +148,31 @@ function exit_code_indicates_crash(exit_code) {
 }
 
 function crashed(type, obj) {
+  // Make sure the event has the correct structure (ignores other types of events)
   if(!obj.metadata || !obj.metadata.labels || !obj.metadata.name || !obj.status) {
     return
   }
 
+  // Parse app name and space name from metadata
   let app_name = obj.metadata.name.substring(0, obj.metadata.name.indexOf('--') === -1 ? obj.metadata.name.length : obj.metadata.name.indexOf('--'))
   let space_name = obj.metadata.namespace
   let app = `${app_name}-${space_name}`
 
+  // Ignore legacy apps & TaaS tests
   if(app.endsWith('-taas') || app.startsWith("oct-")) {
     return
   }
 
+  // Parse dyno type from metadata
   let dyno = obj.metadata.name.replace(`${obj.metadata.name}-`, '')
   let dyno_type = obj.metadata.name.indexOf('--') === -1 ? 'web' : obj.metadata.name.substring(obj.metadata.name.indexOf('--') + 2)
-  let reasons = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.state.terminated ? x.state.terminated.reason : '').join(',') : []
 
+  // Detect whether or not this event indicates a crash
+
+  // Out Of Memory
   let oom = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'OOMKilled') : []
+
+  // App Crashed
   let crashed = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && 
       x.state.terminated.reason === 'Error' && 
       x.state.terminated.exitCode !== 137 && 
@@ -174,33 +183,51 @@ function crashed(type, obj) {
       x.lastState.terminated &&
       exit_code_indicates_crash(x.lastState.terminated.exitCode)
     ) : []
+  
+  // App still creating
+  let creating = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
+
+  // Ignore duplicate crashed events
+  if(reported_crashed[app + dyno] && creating.length === 0) {
+    return
+  }
+  
+  // App never started
   let command = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && 
     x.state.terminated.reason === 'ContainerCannotRun' || 
     x.state.waiting && 
     x.state.waiting.reason === 'CrashLoopBackOff' && 
     x.lastState.terminated && 
     x.lastState.terminated.reason === 'ContainerCannotRun') : []
+
+  // App exited prematurely
   let premature = (obj.status.containerStatuses && !obj.metadata.deletionTimestamp) ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'Completed') : []
-  let creating = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
+
+  // Error pulling image
   let image = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
+  
+  // K8S can't schedule pod
   let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
-  let restarts = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
+  
+  // App hasn't started up in time
   let readiness = (crashed.length === 0 && obj.status.phase === 'Running' && obj.status.containerStatuses) ? obj.status.containerStatuses.filter((x) => x.state.running && x.state.running.startedAt && (((new Date(x.state.running.startedAt)).getTime() + (60 * 1000)) < Date.now()) && x.ready === false && dyno_type === 'web') : []
 
-  if(typeof restarts === 'string') {
-    restarts = parseInt(restarts, 10)
-  }
-
+  // Unused crash indicators
+  let reasons = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.state.terminated ? x.state.terminated.reason : '').join(',') : []
   let restarting = readiness.length > 0 && creating.length > 0 ? true : false
-  
-  if(reported_crashed[app + dyno] && creating.length === 0) {
-    return
-  }
 
+  // Nothing in event that would indicate a crash.
   if(oom.length === 0 && crashed.length === 0 && command.length === 0 && premature.length === 0 && readiness.length === 0 && image.length === 0 && !scheduled) {
     return
   }
 
+  // Parse number of restarts
+  let restarts = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
+  if(typeof restarts === 'string') {
+    restarts = parseInt(restarts, 10)
+  }
+
+  // Set description of crash in order of priority
   let description = (oom.length > 0 ? "Memory quota exceeded" :
       (crashed.length > 0 ? "App crashed" :
       (command.length > 0 ? "App did not startup" :
@@ -216,7 +243,9 @@ function crashed(type, obj) {
       (scheduled ? "H98" :
       (image.length > 0 ? "H99" : "H0")))))))
 
+  // Add crash to cache (for duplicate detection)
   reported_crashed[app + dyno] = obj
+
   let payload = {
     "app":{
       "name":app_name
@@ -240,47 +269,33 @@ function crashed(type, obj) {
   if(process.env.TEST_MODE) {
     return payload
   } else {
-    console.log(`** ${app} crashed ${code} (${description})`)
-    send(payload)
+    console.log(`** ${app} crashed ${code} (${description})\n`)
+    // send(payload)
   }
 }
 
 function crashed_watch() {
-  let req = (new Watch(kc)).watch('/api/v1/pods', {}, crashed, done.bind(null, 'crashes', crashed_watch));
-}
-
-function get_dyno_type(name) {
-  return name.indexOf('--') === -1 ? 'web' : name.substring(name.indexOf('--') + 2)
+  (new Watch(kc)).watch('/api/v1/pods', {}, crashed, done.bind(null, 'crashes', crashed_watch));
 }
 
 let last_release = {}
 function released(type, obj) {
-  // listen to the right types of messages, check the structure for needed
-  // fields, this may have a more explicit way of detecting the right types
-  // of messages, but i'm not sure what it is :/.
-  if(!(
-    obj.status && obj.status.conditions && 
-    obj.metadata &&  obj.metadata.labels && obj.metadata.name && obj.metadata.namespace && obj.metadata.creationTimestamp &&
-    obj.spec && obj.spec.template && obj.spec.template.spec && obj.spec.template.spec.containers && obj.spec.template.spec.containers[0]
-  )) {
-    return
+  // App objects will have the release-uuid in the metadata
+  if(!(obj.metadata && obj.metadata.labels && Object.keys(obj.metadata.labels).includes("akkeris.io/release-uuid"))) {
+    return;
   }
 
-  let app_name = obj.metadata.name.substring(0, obj.metadata.name.indexOf('--') === -1 ? obj.metadata.name.length : obj.metadata.name.indexOf('--'))
-  let space_name = obj.metadata.namespace
-  let app = `${app_name}-${space_name}`
-  let image = obj.spec.template.spec.containers[0].image
-  let create_date = new Date(obj.metadata.creationTimestamp)
+  process.env.DEBUG && console.log('[debug] received released candidate', type, JSON.stringify(obj, null, 2))
 
-  process.env.DEBUG && console.log('received released', type, JSON.stringify(obj, null, 2))
+  const app_name = obj.metadata.labels["akkeris.io/app-name"]
+  const space_name = obj.metadata.namespace
+  const dyno_type = obj.metadata.labels["akkeris.io/dyno-type"]
+  const app = `${app_name}-${space_name}`
+  const image = obj.spec.template.spec.containers[0].image
 
-  if(type === 'ADDED' && (create_date.getTime()  + 1000 * 60 * 5) < Date.now()) {
-    // This is a cached update, it was added to the cache, its not a new deployment.
-    last_release[app] = image
-    return
-  }
-
+  // Ignore objects that don't indicate that a release is completed
   if ( last_release[app] === image || 
+      !(obj.status && obj.status.conditions) ||
       obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True' ).length === 0 ||
       obj.status.observedGeneration !== obj.metadata.generation ||
       obj.status.availableReplicas !== obj.status.readyReplicas || 
@@ -289,12 +304,13 @@ function released(type, obj) {
       app.endsWith('-taas') || 
       app.startsWith("oct-")
   ) {
+    process.env.DEBUG && console.log('[debug] candidate did not meet requirements.')
     return
   }
 
   last_release[app] = image
 
-  let payload = {
+  const payload = {
     "app":{
       "name":app_name
     },
@@ -302,7 +318,7 @@ function released(type, obj) {
       "name":space_name
     },
     "dyno":{
-      "type": get_dyno_type(obj.metadata.name),
+      "type": dyno_type,
     },
     "key":app,
     "action":"released",
@@ -311,28 +327,29 @@ function released(type, obj) {
     },
     "released_at":new Date().toISOString()
   }
+
   process.env.DEBUG && console.log("[debug] app released:", JSON.stringify(payload, null, 2))
 
   if(process.env.TEST_MODE) {
     return payload
   } else {
     console.log(`** ${app} released ${image}`)
-    send(payload)
+    // send(payload)
   }
 }
 
 function released_watch() {
-  let req = (new Watch(kc)).watch('/apis/apps/v1beta1/deployments', {includeUninitialized:false}, released, done.bind(null, 'releases', released_watch));
+  const path = '/apis/apps/v1beta1/deployments';
+  (new Watch(kc)).watchNew(path, { includeUninitialized: false }, released, done.bind(null, 'releases', released_watch));
 }
-
 
 if(!process.env.TEST_MODE) {
   (async function() {
-    process.stdout.write('Connecting to kubernetes. ')
+    process.stdout.write('Connecting to kubernetes...')
     await connect_kube()
+    process.stdout.write('Done!\n')
     released_watch()
     crashed_watch()
-    process.stdout.write('done\n')
   })().catch((e) => console.error(e))
 }
 
