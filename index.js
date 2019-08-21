@@ -39,7 +39,10 @@ function send(payload) {
 }
 
 async function connect_kube() {
-  if(!process.env.KUBERNETES_API_SERVER) {
+  if (process.env.KUBERNETES_SERVICE_HOST && process.env.KUBERNETES_SERVICE_PORT) {
+    kc.loadFromCluster();
+    // Detect if this failed too
+  } else if(!process.env.KUBERNETES_API_SERVER) {
     kc.loadFromFile(process.env['HOME'] + '/.kube/config');
   } else {
     assert.ok(process.env.VAULT_ADDR, 'The VAULT_ADDR was not found.')
@@ -120,6 +123,8 @@ function done(message, launch, err) {
 }
 
 let reported_crashed = {}
+
+// Clear the crashed cache every 30 minutes
 setInterval(() => { reported_crashed = {} }, 30 * 60 * 1000)
 
 function exit_code_indicates_crash(exit_code) {
@@ -169,11 +174,22 @@ function crashed(type, obj) {
 
   // Detect whether or not this event indicates a crash
 
+  // K8S can't schedule pod
+  let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0 
+
+  // No K8S pod scheduling errors. 
+  // All the next crashed indicators need obj.status.containerStatuses so if this isn't present, we're done
+  if (!scheduled && !obj.status.containerStatuses) {
+    return;
+  }
+
+  const containerStatuses = obj.status.containerStatuses;
+
   // Out Of Memory
-  let oom = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'OOMKilled') : []
+  let oom = containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'OOMKilled')
 
   // App Crashed
-  let crashed = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && 
+  let crashed = containerStatuses.filter((x) => x.state.terminated && 
       x.state.terminated.reason === 'Error' && 
       x.state.terminated.exitCode !== 137 && 
       exit_code_indicates_crash(x.state.terminated.exitCode) || 
@@ -182,10 +198,10 @@ function crashed(type, obj) {
       x.lastState &&
       x.lastState.terminated &&
       exit_code_indicates_crash(x.lastState.terminated.exitCode)
-    ) : []
+    )
   
   // App still creating
-  let creating = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating') : []
+  let creating = crashed.length === 0 && containerStatuses.filter((x) => x.state.waiting && x.state.waiting.reason === 'ContainerCreating')
 
   // Ignore duplicate crashed events
   if(reported_crashed[app + dyno] && creating.length === 0) {
@@ -193,27 +209,24 @@ function crashed(type, obj) {
   }
   
   // App never started
-  let command = obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.terminated && 
+  let command = containerStatuses.filter((x) => x.state.terminated && 
     x.state.terminated.reason === 'ContainerCannotRun' || 
     x.state.waiting && 
     x.state.waiting.reason === 'CrashLoopBackOff' && 
     x.lastState.terminated && 
-    x.lastState.terminated.reason === 'ContainerCannotRun') : []
+    x.lastState.terminated.reason === 'ContainerCannotRun')
 
   // App exited prematurely
-  let premature = (obj.status.containerStatuses && !obj.metadata.deletionTimestamp) ? obj.status.containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'Completed') : []
+  let premature = !obj.metadata.deletionTimestamp ? containerStatuses.filter((x) => x.state.terminated && x.state.terminated.reason === 'Completed') : []
 
   // Error pulling image
-  let image = crashed.length === 0 && obj.status.containerStatuses ? obj.status.containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull')) : []
-  
-  // K8S can't schedule pod
-  let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0
+  let image = crashed.length === 0 && containerStatuses.filter((x) => x.state.waiting && (x.state.waiting.reason === 'ImagePullBackOff' || x.state.waiting.reason === 'ErrImagePull'))
   
   // App hasn't started up in time
-  let readiness = (crashed.length === 0 && obj.status.phase === 'Running' && obj.status.containerStatuses) ? obj.status.containerStatuses.filter((x) => x.state.running && x.state.running.startedAt && (((new Date(x.state.running.startedAt)).getTime() + (60 * 1000)) < Date.now()) && x.ready === false && dyno_type === 'web') : []
+  let readiness = (crashed.length === 0 && obj.status.phase === 'Running') ? containerStatuses.filter((x) => x.state.running && x.state.running.startedAt && (((new Date(x.state.running.startedAt)).getTime() + (60 * 1000)) < Date.now()) && x.ready === false && dyno_type === 'web') : []
 
   // Unused crash indicators
-  let reasons = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.state.terminated ? x.state.terminated.reason : '').join(',') : []
+  let reasons = containerStatuses.map((x) => x.state.terminated ? x.state.terminated.reason : '').join(',')
   let restarting = readiness.length > 0 && creating.length > 0 ? true : false
 
   // Nothing in event that would indicate a crash.
@@ -222,7 +235,7 @@ function crashed(type, obj) {
   }
 
   // Parse number of restarts
-  let restarts = obj.status.containerStatuses ? obj.status.containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
+  let restarts = containerStatuses ? containerStatuses.map((x) => x.restartCount || 0).reduce((a, b) => a + b, []) : 0
   if(typeof restarts === 'string') {
     restarts = parseInt(restarts, 10)
   }
