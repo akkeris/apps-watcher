@@ -62,7 +62,7 @@ async function checkPermissions() {
   }
 }
 
-// Preferred mode - use default Kubernetes cluster and a service account
+// Preferred mode - use default Kubernetes cluster with service account
 async function loadFromCluster() {
   console.log('\nIn-cluster mode: Connecting to default Kubernetes cluster...');
   try {
@@ -78,6 +78,7 @@ async function loadFromCluster() {
 async function loadFromKubeConfig() {
   console.log('\nKubeconfig mode: Using ~/.kube/config...');
   try {
+    assert.ok(process.env.HOME, 'The HOME environment variable was not found.')
     kc.loadFromFile(process.env['HOME'] + '/.kube/config');
     await checkPermissions();
   } catch (err) {
@@ -92,67 +93,54 @@ async function loadFromVault() {
   console.log('\nVault mode: Using credentials stored in Vault...');
   try {
     assert.ok(process.env.VAULT_ADDR, 'The VAULT_ADDR was not found.')
-    if(!process.env.VAULT_ADDR.startsWith('http')) {
-      process.env.VAULT_ADDR = 'https://' + process.env.VAULT_ADDR
-    }
-    assert.ok(process.env.VAULT_ADDR.startsWith('http'), 'VAULT_ADDR should be a url not a host.')
     assert.ok(process.env.VAULT_TOKEN, 'The VAULT_TOKEN was not found.')
     assert.ok(process.env.KUBERNETES_API_VERSION, 'The KUBERNETES_API_VERSION value was not found.')
     assert.ok(process.env.KUBERNETES_CONTEXT, 'The KUBERNETES_CONTEXT value was not found.')
     assert.ok(process.env.KUBERNETES_API_SERVER, 'The KUBERNETES_API_SERVER value was not found.')
+
+    if(!process.env.VAULT_ADDR.startsWith('http')) {
+      process.env.VAULT_ADDR = 'https://' + process.env.VAULT_ADDR
+    }
+    
     let vc = vault({apiVersion:'v1', endpoint:process.env.VAULT_ADDR, token:process.env.VAULT_TOKEN})
-    if(!process.env.KUBERNETES_TOKEN_SECRET) {
-      let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
-      assert.ok(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
+
+    let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
+    assert.ok(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
+
+    let token;
+    if (process.env.KUBERNETES_TOKEN_SECRET) {
+      token = (await vc.read(process.env.KUBERNETES_TOKEN_SECRET)).data
+    } else {
       assert.ok(cert['admin-crt'], 'The admin-crt was not found within the vault kubernetes secret')
       assert.ok(cert['admin-key'], 'The admin-key was not found within the vault kubernetes secret')
-      kc.loadFromString(`
-        apiVersion: ${process.env.KUBERNETES_API_VERSION}
-        clusters:
-        - cluster:
-            certificate-authority-data: ${(Buffer.from(cert['ca-crt'], 'utf8')).toString('base64')}
-            server: https://${process.env.KUBERNETES_API_SERVER}
-          name: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
-        contexts:
-        - context:
-            cluster: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
-            namespace: kube-system
-            user: alamo-${process.env.KUBERNETES_CONTEXT}-admin
-          name: ${process.env.KUBERNETES_CONTEXT}
-        current-context: ${process.env.KUBERNETES_CONTEXT}
-        kind: Config
-        preferences: {}
-        users:
-        - name: alamo-${process.env.KUBERNETES_CONTEXT}-admin
-          user:
-            client-certificate-data: ${(Buffer.from(cert['admin-crt'], 'utf8')).toString('base64')}
-            client-key-data: ${(Buffer.from(cert['admin-key'], 'utf8')).toString('base64')}`)
-    } else {
-      let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
-      let token = (await vc.read(process.env.KUBERNETES_TOKEN_SECRET)).data
-      assert.ok(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
-      kc.loadFromString(`
-        apiVersion: ${process.env.KUBERNETES_API_VERSION}
-        clusters:
-        - cluster:
-            insecure-skip-tls-verify: 'true'
-            certificate-authority-data: ${(Buffer.from(cert['ca-crt'], 'utf8')).toString('base64')}
-            server: https://${process.env.KUBERNETES_API_SERVER}
-          name: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
-        contexts:
-        - context:
-            cluster: alamo-${process.env.KUBERNETES_CONTEXT}-cluster
-            namespace: kube-system
-            user: alamo-${process.env.KUBERNETES_CONTEXT}-admin
-          name: ${process.env.KUBERNETES_CONTEXT}
-        current-context: ${process.env.KUBERNETES_CONTEXT}
-        kind: Config
-        preferences: {}
-        users:
-        - name: alamo-${process.env.KUBERNETES_CONTEXT}-admin
-          user:
-            token: ${token.token}`)
     }
+
+    const cluster = {
+      name: `akkeris-${process.env.KUBERNETES_CONTEXT}-cluster`,
+      server: `${process.env.KUBERNETES_API_SERVER}`,
+      caData: (Buffer.from(cert['ca-crt'], 'utf8')).toString('base64'),
+    };
+
+    const user = {
+      name: `akkeris-${process.env.KUBERNETES_CONTEXT}-admin`,
+      token: token ? token.token : undefined,
+      certData: !token ? Buffer.from(cert['admin-crt'], 'utf8').toString('base64') : undefined,
+      keyData: !token ? Buffer.from(cert['admin-key'], 'utf8').toString('base64') : undefined,
+    };
+    
+    const context = {
+      name: process.env.KUBERNETES_CONTEXT,
+      cluster: cluster.name,
+      user: user.name,
+    };
+
+    kc.loadFromOptions({
+      clusters: [cluster],
+      users: [user],
+      contexts: [context],
+      currentContext: context.name,
+    });
+    
     await checkPermissions();
   } catch (err) {
     console.log('\nVault loading failed with the following message:\n', err.message);
@@ -162,6 +150,8 @@ async function loadFromVault() {
 }
 
 async function connect_kube() {
+  console.log('Connecting to kubernetes...');
+
   if (process.env.KUBERNETES_SERVICE_HOST && process.env.KUBERNETES_SERVICE_PORT && (await loadFromCluster())) {
     console.log('Successfully connected to Kubernetes in-cluster!')
   } else if (!process.env.KUBERNETES_API_SERVER && (await loadFromKubeConfig())) {
@@ -425,9 +415,7 @@ function released_watch() {
 
 if(!process.env.TEST_MODE) {
   (async function() {
-    process.stdout.write('Connecting to kubernetes...')
     await connect_kube()
-    process.stdout.write('Done!\n')
     released_watch()
     crashed_watch()
   })().catch((e) => console.error(e))
