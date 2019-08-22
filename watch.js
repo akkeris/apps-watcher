@@ -24,7 +24,7 @@ class Watch {
   // Watch path for events
   // If rv (resourceVersion) is passed in, start watching from rv and don't fetch old events
   watch(path, queryParams, callback, done, rv) {
-    const uri = `${this.config.getCurrentCluster().server}${path}`;
+    const url = `${this.config.getCurrentCluster().server}${path}`;
     
     let qp = {
       ...queryParams,
