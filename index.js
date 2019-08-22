@@ -166,14 +166,16 @@ async function connect_kube() {
     console.log('Successfully connected to Kubernetes in-cluster!')
   } else if (!process.env.KUBERNETES_API_SERVER && (await loadFromKubeConfig())) {
     console.log('Successfully connected to Kubernetes via kubeconfig!')
+    if(process.env.KUBERNETES_CONTEXT) {
+      kc.setCurrentContext(process.env.KUBERNETES_CONTEXT)
+    }
   } else if ((await loadFromVault())) {
     console.log('Successfully connected to Kubernetes by reading from Vault!')
+    if(process.env.KUBERNETES_CONTEXT) {
+      kc.setCurrentContext(process.env.KUBERNETES_CONTEXT)
+    }
   } else {
     throw new Error('Failed to connect to Kubernetes - All available connection methods failed.');
-  }
-
-  if(process.env.KUBERNETES_CONTEXT) {
-    kc.setCurrentContext(process.env.KUBERNETES_CONTEXT)
   }
 
   kc.applyToRequest({forever:true, headers:{}})
