@@ -38,13 +38,59 @@ function send(payload) {
     })
 }
 
-async function connect_kube() {
-  if (process.env.KUBERNETES_SERVICE_HOST && process.env.KUBERNETES_SERVICE_PORT) {
+async function checkPermissions() {
+  const accessPods = { spec: { resourceAttributes: { verb: "watch", resource: "pods" } } };
+  const accessDeployments = { spec: { resourceAttributes: { verb: "watch", resource: "deployment", group: "apps" } } };
+
+  const k8sApi = kc.makeApiClient(k8s.AuthorizationV1Api);
+  
+  const canWatchPods = (await k8sApi.createSelfSubjectAccessReview(accessPods)).body.status.allowed;
+  const canWatchDeployments = (await k8sApi.createSelfSubjectAccessReview(accessDeployments)).body.status.allowed;
+
+  const errors = [];
+
+  if (!canWatchPods) {
+    errors.push('Service account must be able to watch pods at the cluster level.');
+  }
+
+  if (!canWatchDeployments) {
+    errors.push('Service account must be able to watch deployments at the cluster level.')
+  }
+  
+  if (errors.length > 0) {
+    throw new Error(`Error validating permissions:\n${errors.join('\n')}`);
+  }
+}
+
+// Preferred mode - use default Kubernetes cluster and a service account
+async function loadFromCluster() {
+  console.log('\nIn-cluster mode: Connecting to default Kubernetes cluster...');
+  try {
     kc.loadFromCluster();
-    // Detect if this failed too
-  } else if(!process.env.KUBERNETES_API_SERVER) {
+    await checkPermissions();
+  } catch (err) {
+    console.log('\nIn-cluster loading failed with the following message:\n', err.message);
+    return false;
+  }
+  return true;
+}
+
+async function loadFromKubeConfig() {
+  console.log('\nKubeconfig mode: Using ~/.kube/config...');
+  try {
     kc.loadFromFile(process.env['HOME'] + '/.kube/config');
-  } else {
+    await checkPermissions();
+  } catch (err) {
+    console.log('\nKubeconfig loading failed with the following message:\n', err.message);
+    return false;
+  }
+  return true;
+}
+
+// Legacy mode - requires oodles of environment variables
+async function loadFromVault() {
+  console.log('\nVault mode: Using credentials stored in Vault...');
+  try {
     assert.ok(process.env.VAULT_ADDR, 'The VAULT_ADDR was not found.')
     if(!process.env.VAULT_ADDR.startsWith('http')) {
       process.env.VAULT_ADDR = 'https://' + process.env.VAULT_ADDR
@@ -107,10 +153,29 @@ async function connect_kube() {
           user:
             token: ${token.token}`)
     }
+    await checkPermissions();
+  } catch (err) {
+    console.log('\nVault loading failed with the following message:\n', err.message);
+    return false;
   }
+  return true;
+}
+
+async function connect_kube() {
+  if (process.env.KUBERNETES_SERVICE_HOST && process.env.KUBERNETES_SERVICE_PORT && (await loadFromCluster())) {
+    console.log('Successfully connected to Kubernetes in-cluster!')
+  } else if (!process.env.KUBERNETES_API_SERVER && (await loadFromKubeConfig())) {
+    console.log('Successfully connected to Kubernetes via kubeconfig!')
+  } else if ((await loadFromVault())) {
+    console.log('Successfully connected to Kubernetes by reading from Vault!')
+  } else {
+    throw new Error('Failed to connect to Kubernetes - All available connection methods failed.');
+  }
+
   if(process.env.KUBERNETES_CONTEXT) {
     kc.setCurrentContext(process.env.KUBERNETES_CONTEXT)
   }
+
   kc.applyToRequest({forever:true, headers:{}})
 }
 
