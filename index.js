@@ -101,6 +101,10 @@ async function loadFromVault() {
     if(!process.env.VAULT_ADDR.startsWith('http')) {
       process.env.VAULT_ADDR = 'https://' + process.env.VAULT_ADDR
     }
+
+    if(!process.env.KUBERNETES_API_SERVER.startsWith('http')) {
+      process.env.KUBERNETES_API_SERVER = 'https://' + process.env.KUBERNETES_API_SERVER
+    }
     
     let vc = vault({apiVersion:'v1', endpoint:process.env.VAULT_ADDR, token:process.env.VAULT_TOKEN})
 
@@ -140,7 +144,7 @@ async function loadFromVault() {
       contexts: [context],
       currentContext: context.name,
     });
-    
+
     await checkPermissions();
   } catch (err) {
     console.log('\nVault loading failed with the following message:\n', err.message);
