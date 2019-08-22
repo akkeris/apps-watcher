@@ -419,7 +419,12 @@ function released_watch() {
 
 if(!process.env.TEST_MODE) {
   (async function() {
-    await connect_kube()
+    try {
+      await connect_kube()
+    } catch (e) {
+      console.error(e);
+      process.exit(1);
+    }
     released_watch()
     crashed_watch()
   })().catch((e) => console.error(e))
