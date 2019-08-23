@@ -10,54 +10,56 @@ The application watcher serves as a webhook notification system for kubernetes e
 
 ## Setup
 
-The following environment variables are required for it to function:
+### Required Environment Variables
 
-* `VAULT_ADDR` - The API host (not URL) for Hashicorp vault.
-* `VAULT_TOKEN` - The token to use for vault
-* `KUBERNETES_API_SERVER` - The API host (not URL) for kubernetes.
-* `KUBERNETES_CERT_SECRET` - The path where to read in kubernetes cert secrets within vault (e.g, `/secret/kubernetes/certs`), see Kubernetes Certs for more information on format.
-* `KUBERNETES_API_VERSION` - Kubernetes API version to use, this should be set to v1 as no other version is currently supported.
-* `KUBERNETES_CONTEXT` - If multiple contexts are available within a store, which to use.
-* `NOTIFY` - A comma delimited list of end points to send notifications to, these can be either http or https.
+* `NOTIFY`  - Set this to a comma delimited list of end points to send notifications to. These can be either http or https.
 
-OR alternatively, you can instruct application watcher to read the kube config from its home directory by setting:
+### Authenticating to Kubernetes
 
-* `HOME` - This indicates where to read the kubeconfig from, usually for development (`$HOME/.kube/config` is read in).
-* `NOTIFY` - A comma delimited list of end points to send notifications to, these can be either http or https.
-* `KUBERNETES_CONTEXT` - If multiple contexts are available within a store, which to use.
+There are three methods that can be used to connect/authenticate to Kubernetes. In order of precedence, these methods are in-cluster, kubeconfig, and vault. If one method fails, the next method will be tried as a fallback until no methods remain.
 
-OR alternatively, you can instruct appication watcher to read from a token:
+#### In-Cluster
 
-* `VAULT_ADDR` - The API host (not URL) for Hashicorp vault.
-* `VAULT_TOKEN` - The token to use for vault
-* `KUBERNETES_API_SERVER` - The API host (not URL) for kubernetes.
-* `KUBERNETES_CERT_SECRET` - The path where to read in kubernetes cert secrets within vault (e.g, `/secret/kubernetes/certs`), see Kubernetes Certs for more information on format.
-* `KUBERNETES_TOKEN_SECRET` - The path where to read in kubernetes token secrets within vault (e.g, `/secret/kubernetes/token`), the value should have a field `token` containing the token for kubernetes.
-* `KUBERNETES_API_VERSION` - Kubernetes API version to use, this should be set to v1 as no other version is currently supported.
-* `KUBERNETES_CONTEXT` - If multiple contexts are available within a store, which to use.
-* `NOTIFY` - A comma delimited list of end points to send notifications to, these can be either http or https.
+If running as a pod, the apps-watcher will first try to connect to the Kubernetes cluster hosting the pod. This uses the service account that Kubernetes places in `/var/run/secrets/kubernetes.io/serviceaccount`. The apps-watcher knows it's running as a pod by checking for the presence of the `KUBERNETES_SERVICE_HOST` and `KUBERNETES_SERVICE_PORT` environment variables injected by Kubernetes.
 
+#### Kubeconfig
 
-Start with `node index.js` or `npm run` (either one works fine)
+If in-cluster authentication fails, the apps-watcher will try to use the kubeconfig from its home directory. The following environment variables should be set if this authentication method is desired:
 
-### Kubernetes Certs
+* `HOME` - The location of the home directory. The kubeconfig file will be read from `$HOME/.kube/config`.
+* `KUBERNETES_CONTEXT` - If multiple contexts are available in the kubeconfig, this indicates which one to use.
 
-Within vault a secret should be placed with the following properties:
+#### Vault
 
-1. `ca-crt` which contains the certificate authority as a PEM encoded field.
-2. `admin-crt` which contains the certificate for the administrative role used for watching pods/deployments. This should be PEM encoded.
-3. `admin-key` which contains the key for the administrative role used for watching pods/deployments.  This should be PEM encoded.
+If both in-cluster and kubeconfig authentication fails, the apps-watcher will try to authenticate using a token stored in Vault. The following environment variables should be set if this authentication is desired:
 
-The path to this secret (e.g., `/secrets/kubernetes/certs` or whatever your path may be) should be placed in the environment variable `KUBERNETES_CERT_SECRET`.  Note that this section is not required if the configuration is read from a file.
+* `VAULT_ADDR` - The API host for Hashicorp Vault.
+* `VAULT_TOKEN` - The token to use for connecting to Vault.
+* `KUBERNETES_TOKEN_SECRET` - The path in vault where the Kubernetes token is stored (e.g. `secret/k8s/token`). This should have a field `token` containing the Kubernetes token.
+* `KUBERNETES_API_SERVER` - The API host for Kubernetes.
+* `KUBERNETES_CONTEXT` - If multiple contexts are available, specify the context to use.
+
+## Running
+
+```
+npm install
+npm start
+```
 
 ## Development and Testing
 
-In the setup section just set the `KUBERNETES_CONTEXT`, set `NOTIFY` to a mock bin to see the results, and ensure you have `$HOME/.kube/config` setup. You can alternatively set:
+For local development, it's best to use the kubeconfig authentication method.
 
-1. `TEST_MODE` - Bails out early of certain calls and allow unit tests to function, must be set when running tests, not very useful while developing.
-2. `DEBUG` - Set up debug mode causes it to print out what its sending and what it receives.  Useful for development.
+* Ensure that `$HOME/.kube/config` exists and is properly configured.
+* Set `KUBERNETES_CONTEXT` to the appropriate cluster found in the kubeconfig file.
+* Set `NOTIFY` to a mock endpoint to view results (for example, you could use https://postb.in/ to create an endpoint)
 
-To test run `npm test`.
+The following environment variables are also available for testing and development purposes:
+
+* `TEST_MODE` - Must be set when running tests - Bails out early of certain calls and allow unit tests to function.
+* `DEBUG` - Print extra information about what is received and sent by the apps-watcher
+
+To test, run `npm test`.
 
 ### Reproducing Failed Pods
 

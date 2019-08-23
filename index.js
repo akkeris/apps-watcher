@@ -3,8 +3,8 @@ const k8s = require('@kubernetes/client-node'),
       url = require('url'), 
       http = require('http'), 
       https = require('https'),
-      assert = require('assert')
-      request = require('request')
+      assert = require('assert'),
+      fs = require('fs')
 const kc = new k8s.KubeConfig()
 const Watch = require('./watch.js').Watch
 
@@ -79,7 +79,8 @@ async function loadFromKubeConfig() {
   console.log('\nKubeconfig mode: Using ~/.kube/config...');
   try {
     assert.ok(process.env.HOME, 'The HOME environment variable was not found.')
-    kc.loadFromFile(process.env['HOME'] + '/.kube/config');
+    assert.ok(fs.existsSync(`${process.env.HOME}/.kube/config`), `The kubeconfig file was not found at ${process.env.HOME}/.kube/config`)
+    kc.loadFromFile(`${process.env.HOME}/.kube/config`);
     await checkPermissions();
   } catch (err) {
     console.log('\nKubeconfig loading failed with the following message:\n', err.message);
@@ -94,7 +95,6 @@ async function loadFromVault() {
   try {
     assert.ok(process.env.VAULT_ADDR, 'The VAULT_ADDR was not found.')
     assert.ok(process.env.VAULT_TOKEN, 'The VAULT_TOKEN was not found.')
-    assert.ok(process.env.KUBERNETES_API_VERSION, 'The KUBERNETES_API_VERSION value was not found.')
     assert.ok(process.env.KUBERNETES_CONTEXT, 'The KUBERNETES_CONTEXT value was not found.')
     assert.ok(process.env.KUBERNETES_API_SERVER, 'The KUBERNETES_API_SERVER value was not found.')
 
@@ -108,28 +108,16 @@ async function loadFromVault() {
     
     let vc = vault({apiVersion:'v1', endpoint:process.env.VAULT_ADDR, token:process.env.VAULT_TOKEN})
 
-    let cert = (await vc.read(process.env.KUBERNETES_CERT_SECRET)).data
-    assert.ok(cert['ca-crt'], 'The ca-crt was not found within the vault kubernetes secret')
-
-    let token;
-    if (process.env.KUBERNETES_TOKEN_SECRET) {
-      token = (await vc.read(process.env.KUBERNETES_TOKEN_SECRET)).data
-    } else {
-      assert.ok(cert['admin-crt'], 'The admin-crt was not found within the vault kubernetes secret')
-      assert.ok(cert['admin-key'], 'The admin-key was not found within the vault kubernetes secret')
-    }
+    const token = (await vc.read(process.env.KUBERNETES_TOKEN_SECRET)).data
 
     const cluster = {
       name: `akkeris-${process.env.KUBERNETES_CONTEXT}-cluster`,
       server: `${process.env.KUBERNETES_API_SERVER}`,
-      caData: (Buffer.from(cert['ca-crt'], 'utf8')).toString('base64'),
     };
 
     const user = {
       name: `akkeris-${process.env.KUBERNETES_CONTEXT}-admin`,
-      token: token ? token.token : undefined,
-      certData: !token ? Buffer.from(cert['admin-crt'], 'utf8').toString('base64') : undefined,
-      keyData: !token ? Buffer.from(cert['admin-key'], 'utf8').toString('base64') : undefined,
+      token: token.token,
     };
     
     const context = {
@@ -158,7 +146,7 @@ async function connect_kube() {
 
   if (process.env.KUBERNETES_SERVICE_HOST && process.env.KUBERNETES_SERVICE_PORT && (await loadFromCluster())) {
     console.log('Successfully connected to Kubernetes in-cluster!')
-  } else if (!process.env.KUBERNETES_API_SERVER && (await loadFromKubeConfig())) {
+  } else if ((await loadFromKubeConfig())) {
     console.log('Successfully connected to Kubernetes via kubeconfig!')
     if(process.env.KUBERNETES_CONTEXT) {
       kc.setCurrentContext(process.env.KUBERNETES_CONTEXT)
