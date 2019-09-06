@@ -332,7 +332,7 @@ function crashed(type, obj) {
     return payload
   } else {
     console.log(`** ${app} crashed ${code} (${description})\n`)
-    // send(payload)
+    send(payload)
   }
 }
 
@@ -396,7 +396,7 @@ function released(type, obj) {
     return payload
   } else {
     console.log(`** ${app} released ${image}`)
-    // send(payload)
+    send(payload)
   }
 }
 
