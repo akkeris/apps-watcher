@@ -141,7 +141,7 @@ async function loadFromVault() {
   return true;
 }
 
-async function connect_kube() {
+async function connectKube() {
   console.log('Connecting to kubernetes...');
 
   if (process.env.KUBERNETES_SERVICE_HOST && process.env.KUBERNETES_SERVICE_PORT && (await loadFromCluster())) {
@@ -176,7 +176,7 @@ let reported_crashed = {}
 // Clear the crashed cache every 30 minutes
 setInterval(() => { reported_crashed = {} }, 30 * 60 * 1000)
 
-function exit_code_indicates_crash(exit_code) {
+function exitCodeIndicatesCrash(exit_code) {
   // http://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
   // https://unix.stackexchange.com/questions/110348/how-do-i-get-the-list-of-exit-codes-and-or-return-codes-and-meaning-for-a-comm
   // Exit code        0  = successful
@@ -241,12 +241,12 @@ function crashed(type, obj) {
   let crashed = containerStatuses.filter((x) => x.state.terminated && 
       x.state.terminated.reason === 'Error' && 
       x.state.terminated.exitCode !== 137 && 
-      exit_code_indicates_crash(x.state.terminated.exitCode) || 
+      exitCodeIndicatesCrash(x.state.terminated.exitCode) || 
       x.state.waiting && 
       x.state.waiting.reason === 'CrashLoopBackOff' && 
       x.lastState &&
       x.lastState.terminated &&
-      exit_code_indicates_crash(x.lastState.terminated.exitCode)
+      exitCodeIndicatesCrash(x.lastState.terminated.exitCode)
     )
   
   // App still creating
@@ -336,8 +336,8 @@ function crashed(type, obj) {
   }
 }
 
-function crashed_watch() {
-  (new Watch(kc)).watch('/api/v1/pods', {}, crashed, done.bind(null, 'crashes', crashed_watch));
+function crashedWatch() {
+  (new Watch(kc)).watch('/api/v1/pods', {}, crashed, done.bind(null, 'crashes', crashedWatch));
 }
 
 let last_release = {}
@@ -400,21 +400,21 @@ function released(type, obj) {
   }
 }
 
-function released_watch() {
+function releasedWatch() {
   const path = '/apis/apps/v1beta1/deployments';
-  (new Watch(kc)).watchNew(path, { includeUninitialized: false }, released, done.bind(null, 'releases', released_watch));
+  (new Watch(kc)).watchNew(path, { includeUninitialized: false }, released, done.bind(null, 'releases', releasedWatch));
 }
 
 if(!process.env.TEST_MODE) {
   (async function() {
     try {
-      await connect_kube()
+      await connectKube()
     } catch (e) {
       console.error(e);
       process.exit(1);
     }
-    released_watch()
-    crashed_watch()
+    releasedWatch()
+    crashedWatch()
   })().catch((e) => console.error(e))
 }
 
