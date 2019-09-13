@@ -354,6 +354,7 @@ function released(type, obj) {
   const dyno_type = obj.metadata.labels["akkeris.io/dyno-type"]
   const app = `${app_name}-${space_name}`
   const image = obj.spec.template.spec.containers[0].image
+  const release_uuid = obj.metadata.labels["akkeris.io/release-uuid"]
 
   // Ignore objects that don't indicate that a release is completed
   if ( last_release[app] === image || 
@@ -381,6 +382,9 @@ function released(type, obj) {
     },
     "dyno":{
       "type": dyno_type,
+    },
+    "release":{
+      "id":release_uuid,
     },
     "key":app,
     "action":"released",
