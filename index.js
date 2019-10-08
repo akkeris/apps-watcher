@@ -11,15 +11,15 @@ const Watch = require('./watch.js').Watch
 let send_queue = []
 setInterval(() => {
   if(send_queue.length > 0) {
-    let item = send_queue.shift()
-    let connect = item.uri.protocol === 'https:' ? https : http
-    let req = connect.request(item.request)
+    const item = send_queue.shift();
+    const connect = item.uri.protocol === 'https:' ? https : http;
+    const req = connect.request(item.uri, item.options);
     if(process.env.DEBUG) {
-      console.log('[debug] ' + item.request.method + ' ' + item.uri.protocol + '//' + item.uri.host + item.uri.path + ' ' + item.payload.key + ' ' + item.payload.action)
+      console.log('[debug] ' + item.options.method + ' ' + item.uri.protocol + '//' + item.uri.host + item.uri.pathname + ' ' + item.payload.key + ' ' + item.payload.action);
     }
-    req.on('error', (e) => console.log(item.uri.protocol + '//' + item.uri.host + item.uri.path + ' failed ', e))
-    req.write(JSON.stringify(item.payload, null, 2))
-    req.end()
+    req.on('error', (e) => console.log(item.uri.protocol + '//' + item.uri.host + item.uri.pathname + ' failed ', e));
+    req.write(JSON.stringify(item.payload, null, 2));
+    req.end();
   }
 }, 100)
 
@@ -27,15 +27,22 @@ function send(payload) {
   (process.env.NOTIFY || '')
     .split(',')
     .filter((x) => x !== ''.trim())
-    .map((uri) => url.parse(uri))
+    .map((uri) => new url.URL(uri))
     .forEach((uri) => {
-      let headers = {'content-type':'application/json'}
-      if(uri.auth && uri.auth.indexOf(':') === -1) {
-        headers['authorization'] = uri.auth
-        uri.auth = null
-      }
-      send_queue.push({request:Object.assign(uri, {method:'POST', headers}), payload, uri})
-    })
+      let headers = { 'content-type': 'application/json' };
+      if (uri.username && !uri.password) {
+        headers['authorization'] = uri.username;
+        uri.username = '';
+      };
+      send_queue.push({
+        uri,
+        payload,
+        options: {
+          method: 'POST',
+          headers,
+        },
+      });
+    });
 }
 
 async function checkPermissions() {
