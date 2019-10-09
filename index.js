@@ -208,6 +208,39 @@ function exitCodeIndicatesCrash(exit_code) {
   }
 }
 
+function reportCrashed(type, obj, app_name, space_name, dyno, dyno_type, description, code, restarts) {
+  const app = `${app_name}-${space_name}`;
+  // Add crash to cache (for duplicate detection)
+  reported_crashed[app + dyno] = obj
+
+  const payload = {
+    "app":{
+      "name":app_name
+    },
+    "space":{
+      "name":space_name
+    },
+    "dynos":[
+      {dyno, type:dyno_type}
+    ],
+    "key":app,
+    "action":"crashed",
+    description,
+    code,
+    restarts,
+    "crashed_at":(new Date(Date.now())).toISOString()
+  }
+
+  process.env.DEBUG && console.log("[debug] app crashed:", JSON.stringify(payload, null, 2), 'type', JSON.stringify(type, null, 2), 'obj', JSON.stringify(obj, null, 2))
+  
+  if(process.env.TEST_MODE) {
+    return payload
+  } else {
+    console.log(`** ${app} crashed ${code} (${description})\n`)
+    send(payload)
+  }
+}
+
 function crashed(type, obj) {
   // Make sure the event has the correct structure (ignores other types of events)
   if(!obj.metadata || !obj.metadata.labels || !obj.metadata.name || !obj.status) {
@@ -233,9 +266,14 @@ function crashed(type, obj) {
   // K8S can't schedule pod
   let scheduled = obj.status.phase === 'Pending' && obj.status.conditions && obj.status.conditions.filter((x) => x.reason === 'Unschedulable' && x.message && x.type === 'PodScheduled' && x.status === 'False').length > 0 
 
-  // No K8S pod scheduling errors. 
+  if (scheduled) {
+    return reportCrashed(type, obj, app_name, space_name, dyno, dyno_type, "Platform limit error", "H98", 0);
+  }
+
+  // No K8S pod scheduling errors.
+  
   // All the next crashed indicators need obj.status.containerStatuses so if this isn't present, we're done
-  if (!scheduled && !obj.status.containerStatuses) {
+  if (!obj.status.containerStatuses) {
     return;
   }
 
@@ -297,50 +335,21 @@ function crashed(type, obj) {
   }
 
   // Set description of crash in order of priority
-  let description = (oom.length > 0 ? "Memory quota exceeded" :
+  const description = (oom.length > 0 ? "Memory quota exceeded" :
       (crashed.length > 0 ? "App crashed" :
       (command.length > 0 ? "App did not startup" :
       (readiness.length > 0 ? "App boot timeout" :
       (premature.length > 0 ? "App exited prematurely" :
-      (scheduled ? "Platform limit error" :
-      (image.length > 0 ? "Platform error" : "Unknown error")))))))
-  let code = (oom.length > 0 ? "R14" :
+      (image.length > 0 ? "Platform error" : "Unknown error"))))));
+
+  const code = (oom.length > 0 ? "R14" :
       (crashed.length > 0 ? "H10" :
       (command.length > 0 ? "H9" :
       (readiness.length > 0 ? "H20" :
       (premature.length > 0 ? "H8" :
-      (scheduled ? "H98" :
-      (image.length > 0 ? "H99" : "H0")))))))
+      (image.length > 0 ? "H99" : "H0"))))));
 
-  // Add crash to cache (for duplicate detection)
-  reported_crashed[app + dyno] = obj
-
-  let payload = {
-    "app":{
-      "name":app_name
-    },
-    "space":{
-      "name":space_name
-    },
-    "dynos":[
-      {dyno, type:dyno_type}
-    ],
-    "key":app,
-    "action":"crashed",
-    description,
-    code,
-    restarts,
-    "crashed_at":(new Date(Date.now())).toISOString()
-  }
-
-  process.env.DEBUG && console.log("[debug] app crashed:", JSON.stringify(payload, null, 2), 'type', JSON.stringify(type, null, 2), 'obj', JSON.stringify(obj, null, 2))
-  
-  if(process.env.TEST_MODE) {
-    return payload
-  } else {
-    console.log(`** ${app} crashed ${code} (${description})\n`)
-    send(payload)
-  }
+  return reportCrashed(type, obj, app_name, space_name, dyno, dyno_type, description, code, restarts);
 }
 
 function crashedWatch() {
