@@ -247,19 +247,29 @@ function crashed(type, obj) {
     return
   }
 
-  // Parse app name and space name from metadata
-  let app_name = obj.metadata.name.substring(0, obj.metadata.name.indexOf('--') === -1 ? obj.metadata.name.length : obj.metadata.name.indexOf('--'))
+  // Parse app, space, dyno information from metadata
+  let app_name; 
+  if (obj.metadata.labels["akkeris.io/app-name"]) {
+    app_name = obj.metadata.labels["akkeris.io/app-name"];
+  } else {
+    app_name = obj.metadata.name.substring(0, obj.metadata.name.indexOf('--') === -1 ? obj.metadata.name.length : obj.metadata.name.indexOf('--'));
+  }
+
+  let dyno_type;
+  if (obj.metadata.labels["akkeris.io/dyno-type"]) {
+    dyno_type = obj.metadata.labels["akkeris.io/dyno-type"];
+  } else {
+    dyno_type = dyno_type = obj.metadata.name.indexOf('--') === -1 ? 'web' : obj.metadata.name.substring(obj.metadata.name.indexOf('--') + 2);
+  }
+
   let space_name = obj.metadata.namespace
   let app = `${app_name}-${space_name}`
+  let dyno = obj.metadata.name.replace(`${obj.metadata.name}-`, '')
 
   // Ignore legacy apps & TaaS tests
   if(app.endsWith('-taas') || app.startsWith("oct-")) {
     return
   }
-
-  // Parse dyno type from metadata
-  let dyno = obj.metadata.name.replace(`${obj.metadata.name}-`, '')
-  let dyno_type = obj.metadata.name.indexOf('--') === -1 ? 'web' : obj.metadata.name.substring(obj.metadata.name.indexOf('--') + 2)
 
   // Detect whether or not this event indicates a crash
 
