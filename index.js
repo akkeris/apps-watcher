@@ -383,7 +383,7 @@ function released(type, obj) {
   const release_uuid = obj.metadata.labels["akkeris.io/release-uuid"]
 
   // Ignore objects that don't indicate that a release is completed
-  if ( last_release[app] === image || 
+  if ( last_release[app] === release_uuid || 
       !(obj.status && obj.status.conditions) ||
       obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True' ).length === 0 ||
       obj.status.observedGeneration !== obj.metadata.generation ||
@@ -397,7 +397,7 @@ function released(type, obj) {
     return
   }
 
-  last_release[app] = image
+  last_release[app] = release_uuid
 
   const payload = {
     "app":{
