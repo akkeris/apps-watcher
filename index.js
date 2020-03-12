@@ -246,16 +246,17 @@ function reportCrashed(type, obj, appName, spaceName, dyno, dynoType, descriptio
   }
 
   if (process.env.TEST_MODE) {
-    return;
+    return payload;
   }
   console.log(`** ${app} crashed ${code} (${description})\n`);
   send(payload);
+  return null;
 }
 
 function crashed(type, obj) {
   // Make sure the event has the correct structure (ignores other types of events)
   if (!obj.metadata || !obj.metadata.labels || !obj.metadata.name || !obj.status) {
-    return;
+    return null;
   }
 
   // Parse app, space, dyno information from metadata
@@ -281,7 +282,7 @@ function crashed(type, obj) {
 
   // Ignore legacy apps & TaaS tests
   if (app.endsWith('-taas') || app.startsWith('oct-')) {
-    return;
+    return null;
   }
 
   // Detect whether or not this event indicates a crash
@@ -294,15 +295,14 @@ function crashed(type, obj) {
     )).length > 0;
 
   if (scheduled) {
-    reportCrashed(type, obj, appName, spaceName, dyno, dynoType, 'Platform limit error', 'H98', 0);
-    return;
+    return reportCrashed(type, obj, appName, spaceName, dyno, dynoType, 'Platform limit error', 'H98', 0);
   }
 
   // No K8S pod scheduling errors.
 
   // All the next crashed indicators need obj.status.containerStatuses so if this isn't present, we're done
   if (!obj.status.containerStatuses) {
-    return;
+    return null;
   }
 
   const { containerStatuses } = obj.status;
@@ -328,7 +328,7 @@ function crashed(type, obj) {
 
   // Ignore duplicate crashed events
   if (reportedCrashed[app + dyno] && creating.length === 0) {
-    return;
+    return null;
   }
 
   // App never started
@@ -373,7 +373,7 @@ function crashed(type, obj) {
     && image.length === 0
     && !scheduled
   ) {
-    return;
+    return null;
   }
 
   // Parse number of restarts
@@ -405,7 +405,7 @@ function crashed(type, obj) {
     code = 'H99';
   }
 
-  reportCrashed(type, obj, appName, spaceName, dyno, dynoType, description, code, restarts);
+  return reportCrashed(type, obj, appName, spaceName, dyno, dynoType, description, code, restarts);
 }
 
 function crashedWatch() {
@@ -416,7 +416,7 @@ const lastRelease = {};
 function released(type, obj) {
   // App objects will have the release-uuid in the metadata
   if (!(obj.metadata && obj.metadata.labels && Object.keys(obj.metadata.labels).includes('akkeris.io/release-uuid'))) {
-    return;
+    return null;
   }
 
   if (process.env.DEBUG) {
@@ -444,7 +444,7 @@ function released(type, obj) {
     if (process.env.DEBUG) {
       console.log('[debug] candidate did not meet requirements.');
     }
-    return;
+    return null;
   }
 
   lastRelease[app] = releaseUUID;
@@ -475,11 +475,12 @@ function released(type, obj) {
   }
 
   if (process.env.TEST_MODE) {
-    return;
+    return payload;
   }
 
   console.log(`** ${app} released ${image}`);
   send(payload);
+  return null;
 }
 
 function releasedWatch() {
