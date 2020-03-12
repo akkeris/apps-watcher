@@ -1,5 +1,6 @@
-const assert = require('assert')
+const assert = require('assert');
 
+/* eslint-disable */
 module.exports = [
     // no error, just starting (0)
     {
@@ -1878,24 +1879,27 @@ module.exports = [
         "qosClass": "Burstable"
       }
     }
-
 ]
+/* eslint-enable */
 
-if(process.env.TEST_MODE) {
-    const {released, crashed } = require('../index.js')
-    module.exports.forEach((item, ndx) => {
-      try {
-        let result = crashed('MODIFIED', item)
-        if(item.test === 'none') {
-            assert.ok(!result, 'The result returned an error when none was expected.', item, result)
-        } else {
-            assert.ok(result.code === item["test-phase"], 'The result code failed:', result.code, '!==', item["test-phase"], item['test'])
-        }
-        console.log('Test', ndx, 'passed.')
-      } catch (e) {
-        console.log('Test', ndx, 'failed.')
-        console.log(e)
+if (process.env.TEST_MODE) {
+  const { crashed } = require('../index.js'); // eslint-disable-line
+  module.exports.forEach((item, ndx) => {
+    try {
+      const result = crashed('MODIFIED', item);
+      if (item.test === 'none') {
+        assert.ok(!result, 'The result returned an error when none was expected.', item, result);
+      } else {
+        assert.ok(
+          result.code === item['test-phase'],
+          'The result code failed:', result.code, '!==', item['test-phase'], item.test,
+        );
       }
-    })
-    process.exit(0)
+      console.log('Test', ndx, 'passed.');
+    } catch (e) {
+      console.log('Test', ndx, 'failed.');
+      console.log(e);
+    }
+  });
+  process.exit(0);
 }
