@@ -1,15 +1,15 @@
-const request = require('request')
-const LineStream = require('byline').LineStream
+const request = require('request');
+const { LineStream } = require('byline');
 
 class Watch {
   constructor(config) {
-      this.config = config;
+    this.config = config;
   }
-  
+
   // Get current state of cluster and then watch for new events
   watchNew(path, queryParams, callback, done) {
     const uri = `${this.config.getCurrentCluster().server}${path}`;
-    let requestOptions = { uri, json: true, headers: {} };
+    const requestOptions = { uri, json: true, headers: {} };
     this.config.applyToRequest(requestOptions);
 
     request.get(uri, requestOptions, (error, response, body) => {
@@ -17,7 +17,7 @@ class Watch {
         console.error(error);
       }
       const rv = (body && body.metadata && body.metadata.resourceVersion) ? body.metadata.resourceVersion : undefined;
-      this.watch(path, queryParams, callback, done, rv);  
+      this.watch(path, queryParams, callback, done, rv);
     });
   }
 
@@ -25,14 +25,14 @@ class Watch {
   // If rv (resourceVersion) is passed in, start watching from rv and don't fetch old events
   watch(path, queryParams, callback, done, rv) {
     const url = `${this.config.getCurrentCluster().server}${path}`;
-    
-    let qp = {
+
+    const qp = {
       ...queryParams,
-      resourceVersion: rv ? rv : undefined,
+      resourceVersion: rv || undefined,
       watch: true,
     };
 
-    let requestOptions = {
+    const requestOptions = {
       method: 'GET',
       qs: qp,
       headers: {},
@@ -40,13 +40,13 @@ class Watch {
       useQuerystring: true,
       json: true,
       keepAlive: true,
-      forever:true,
-      timeoutSeconds:60 * 60
+      forever: true,
+      timeoutSeconds: 60 * 60,
     };
 
     this.config.applyToRequest(requestOptions);
 
-    let stream = new LineStream();
+    const stream = new LineStream();
     stream.on('data', (data) => {
       let obj = null;
       if (data instanceof Buffer) {
@@ -54,14 +54,14 @@ class Watch {
       } else {
         obj = JSON.parse(data);
       }
-      if (obj['type'] && obj['object']) {
-        callback(obj['type'], obj['object']);
+      if (obj.type && obj.object) {
+        callback(obj.type, obj.object);
       } else {
-        console.log('unexpected object: ' + obj);
+        console.log(`unexpected object: ${obj}`);
       }
     });
 
-    let req = request(requestOptions, (error, response, body) => {
+    const req = request(requestOptions, (error) => {
       if (error) {
         done(error);
       }
@@ -73,4 +73,4 @@ class Watch {
   }
 }
 
-module.exports = {Watch}
+module.exports = { Watch };
