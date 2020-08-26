@@ -57,7 +57,7 @@ class Watch {
       if (obj.type && obj.object) {
         callback(obj.type, obj.object);
       } else {
-        console.log(`unexpected object: ${obj}`);
+        console.log(`unexpected object: ${JSON.stringify(obj)}`);
       }
     });
 

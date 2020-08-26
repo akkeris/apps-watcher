@@ -484,7 +484,7 @@ function released(type, obj) {
 }
 
 function releasedWatch() {
-  const path = '/apis/apps/v1beta1/deployments';
+  const path = '/apis/apps/v1/deployments';
   (new Watch(kc)).watchNew(path, { includeUninitialized: false }, released, done.bind(null, 'releases', releasedWatch));
 }
 
