@@ -12,7 +12,7 @@
     "no-console": "off",
     "max-len": [
       "warn", 
-      { "code": 125, "ignoreUrls": true }
+      { "code": 140, "ignoreUrls": true }
     ],
     "no-param-reassign": "off"
   }

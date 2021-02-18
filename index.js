@@ -5,6 +5,7 @@ const http = require('http');
 const https = require('https');
 const assert = require('assert');
 const fs = require('fs');
+const axios = require('axios');
 
 const kc = new k8s.KubeConfig();
 const { Watch } = require('./watch.js');
@@ -87,7 +88,7 @@ async function loadFromCluster() {
 }
 
 async function loadFromKubeConfig() {
-  console.log('\nKubeconfig mode: Using ~/.kube/config...');
+  console.log('Kubeconfig mode: Using ~/.kube/config...');
   try {
     assert.ok(process.env.HOME, 'The HOME environment variable was not found.');
     assert.ok(
@@ -259,15 +260,16 @@ function crashed(type, obj) {
     return null;
   }
 
-  // Parse app, space, dyno information from metadata
+  // Parse app name from metadata
   let appName;
   if (obj.metadata.labels['akkeris.io/app-name']) {
     appName = obj.metadata.labels['akkeris.io/app-name'];
   } else {
-    appName = obj.metadata.name.substring(0,
-      obj.metadata.name.indexOf('--') === -1 ? obj.metadata.name.length : obj.metadata.name.indexOf('--'));
+    // Ignore event if app name label does not exist
+    return null;
   }
 
+  // Parse space, dyno information from metadata
   let dynoType;
   if (obj.metadata.labels['akkeris.io/dyno-type']) {
     dynoType = obj.metadata.labels['akkeris.io/dyno-type'];
@@ -279,11 +281,6 @@ function crashed(type, obj) {
   const spaceName = obj.metadata.namespace;
   const app = `${appName}-${spaceName}`;
   const dyno = obj.metadata.name.replace(`${obj.metadata.name}-`, '');
-
-  // Ignore legacy apps & TaaS tests
-  if (app.endsWith('-taas') || app.startsWith('oct-')) {
-    return null;
-  }
 
   // Detect whether or not this event indicates a crash
 
@@ -431,15 +428,17 @@ function released(type, obj) {
   const releaseUUID = obj.metadata.labels['akkeris.io/release-uuid'];
 
   // Ignore objects that don't indicate that a release is completed
-  if (lastRelease[app] === releaseUUID
-      || !(obj.status && obj.status.conditions)
-      || obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True').length === 0
-      || obj.status.observedGeneration !== obj.metadata.generation
-      || obj.status.availableReplicas !== obj.status.readyReplicas
-      || obj.status.readyReplicas !== obj.status.replicas
-      || obj.status.replicas !== obj.status.updatedReplicas
-      || app.endsWith('-taas')
-      || app.startsWith('oct-')
+  if (
+    // Only look at new releases
+    lastRelease[app] === releaseUUID
+    // Deployment must be fully available
+    || !(obj.status && obj.status.conditions)
+    || obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True').length === 0
+    || obj.status.observedGeneration !== obj.metadata.generation
+    // All replicas must be ready and running the latest image
+    || obj.status.availableReplicas !== obj.status.readyReplicas
+    || obj.status.readyReplicas !== obj.status.replicas
+    || obj.status.replicas !== obj.status.updatedReplicas
   ) {
     if (process.env.DEBUG) {
       console.log('[debug] candidate did not meet requirements.');
@@ -488,6 +487,34 @@ function releasedWatch() {
   (new Watch(kc)).watchNew(path, { includeUninitialized: false }, released, done.bind(null, 'releases', releasedWatch));
 }
 
+// Get all Akkeris release UUIDs currently deployed in the cluster and store them.
+// This will greatly decrease the chance of duplicate deployment events.
+async function cacheDeploymentReleaseUUIDs() {
+  // Get metadata for all deployments in all namespaces with the release-uuid label present
+  const requestOptions = {
+    url: `${kc.getCurrentCluster().server}/apis/apps/v1/deployments`, // Get all deployments
+    headers: {
+      Accept: 'application/json;as=Table;v=v1beta1;g=meta.k8s.io', // Only get metadata for each deployment
+    },
+    params: {
+      labelSelector: 'akkeris.io/release-uuid', // Only get deployments with the release-uuid label
+    },
+  };
+
+  kc.applyToRequest(requestOptions); // Adds k8s authorization header to the request object
+
+  try {
+    const { data: { rows } } = await axios.request(requestOptions);
+    rows.forEach(({ object: { metadata } }) => {
+      lastRelease[`${metadata.labels['akkeris.io/app-name']}-${metadata.namespace}`] = metadata.labels['akkeris.io/release-uuid'];
+    });
+    console.log('Successfully cached existing release UUIDs!');
+  } catch (err) {
+    console.log('Unable to cache existing release UUIDs:');
+    console.log(err);
+  }
+}
+
 if (!process.env.TEST_MODE) {
   (async function watch() {
     try {
@@ -496,6 +523,9 @@ if (!process.env.TEST_MODE) {
       console.error(e);
       process.exit(1);
     }
+
+    await cacheDeploymentReleaseUUIDs();
+
     releasedWatch();
     crashedWatch();
   }()).catch((e) => console.error(e));
