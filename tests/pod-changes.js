@@ -17,6 +17,7 @@ module.exports = [
         "resourceVersion": "398291678",
         "creationTimestamp": "2018-03-20T15:29:26Z",
         "labels": {
+          "akkeris.io/app-name": "docs",
           "name": "docs",
           "pod-template-hash": "585531626"
         },
@@ -126,6 +127,7 @@ module.exports = [
         "resourceVersion": "398292335",
         "creationTimestamp": "2018-03-12T02:13:49Z",
         "labels": {
+          "akkeris.io/app-name": "sauceconnect",
           "name": "sauceconnect",
           "pod-template-hash": "1977454990"
         },
@@ -272,6 +274,7 @@ module.exports = [
         "resourceVersion": "398272374",
         "creationTimestamp": "2018-03-15T21:42:19Z",
         "labels": {
+          "akkeris.io/app-name": "traffic",
           "name": "traffic",
           "pod-template-hash": "327722973"
         },
@@ -426,6 +429,7 @@ module.exports = [
         "resourceVersion": "398271839",
         "creationTimestamp": "2018-03-12T02:13:03Z",
         "labels": {
+          "akkeris.io/app-name": "servicetest",
           "name": "servicetest",
           "pod-template-hash": "3328967126"
         },
@@ -552,6 +556,7 @@ module.exports = [
         "resourceVersion": "398271559",
         "creationTimestamp": "2018-03-12T02:13:51Z",
         "labels": {
+          "akkeris.io/app-name": "sixers",
           "name": "sixers",
           "pod-template-hash": "3911549925"
         },
@@ -706,6 +711,7 @@ module.exports = [
         "resourceVersion": "398270277",
         "creationTimestamp": "2018-03-14T19:54:31Z",
         "labels": {
+          "akkeris.io/app-name": "useraccount",
           "name": "useraccount",
           "pod-template-hash": "1058445535"
         },
@@ -856,6 +862,7 @@ module.exports = [
         "resourceVersion": "104340160",
         "creationTimestamp": "2018-03-19T20:56:04Z",
         "labels": {
+          "akkeris.io/app-name": "valla",
           "name": "valla",
           "pod-template-hash": "2409362411"
         },
@@ -1005,6 +1012,7 @@ module.exports = [
           "creationTimestamp": "2018-11-13T19:45:13Z",
           "generateName": "docsbeta-3934880710-",
           "labels": {
+              "akkeris.io/app-name": "docsbeta",
               "app": "docsbeta",
               "name": "docsbeta",
               "pod-template-hash": "3934880710",
@@ -1154,6 +1162,7 @@ module.exports = [
         "resourceVersion": "106177558",
         "creationTimestamp": "2018-03-26T16:04:56Z",
         "labels": {
+          "akkeris.io/app-name": "abcd",
           "name": "abcd",
           "pod-template-hash": "2519598803"
         },
@@ -1264,6 +1273,7 @@ module.exports = [
         "resourceVersion": "39487391",
         "creationTimestamp": "2018-11-13T19:03:45Z",
         "labels": {
+          "akkeris.io/app-name": "api",
           "app": "api--worker",
           "name": "api--worker",
           "pod-template-hash": "391501217",
@@ -1420,6 +1430,7 @@ module.exports = [
         "resourceVersion": "398270277",
         "creationTimestamp": "2018-03-14T19:54:31Z",
         "labels": {
+          "akkeris.io/app-name": "useraccount",
           "name": "useraccount",
           "pod-template-hash": "1058445535"
         },
@@ -1569,6 +1580,7 @@ module.exports = [
         "resourceVersion": "398270277",
         "creationTimestamp": "2018-03-14T19:54:31Z",
         "labels": {
+          "akkeris.io/app-name": "useraccount",
           "name": "useraccount",
           "pod-template-hash": "1058445535"
         },
@@ -1713,6 +1725,7 @@ module.exports = [
         "deletionTimestamp": "2019-01-23T19:27:42Z",
         "deletionGracePeriodSeconds": 30,
         "labels": {
+          "akkeris.io/app-name": "pl1",
           "app": "pl1",
           "name": "pl1",
           "pod-template-hash": "2756073162",
