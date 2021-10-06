@@ -3,6 +3,7 @@ const vault = require('node-vault');
 const url = require('url');
 const http = require('http');
 const https = require('https');
+const tls = require('tls');
 const assert = require('assert');
 const fs = require('fs');
 const axios = require('axios');
@@ -83,7 +84,7 @@ async function loadFromCluster() {
     // Load CAs from each cluster into the https globalAgent
     // There really should only be one cluster but better safe than sorry
     const cas = kc.clusters.map((cluster) => cluster.caFile);
-    https.globalAgent.options.ca = [];
+    https.globalAgent.options.ca = [...tls.rootCertificates]; // Add all default root certificates
     cas.forEach((ca) => {
       https.globalAgent.options.ca.push(fs.readFileSync(ca));
     });
