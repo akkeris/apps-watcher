@@ -79,6 +79,15 @@ async function loadFromCluster() {
   console.log('\nIn-cluster mode: Connecting to default Kubernetes cluster...');
   try {
     kc.loadFromCluster();
+
+    // Load CAs from each cluster into the https globalAgent
+    // There really should only be one cluster but better safe than sorry
+    const cas = kc.clusters.map((cluster) => cluster.caFile);
+    https.globalAgent.options.ca = [];
+    cas.forEach((ca) => {
+      https.globalAgent.options.ca.push(fs.readFileSync(ca));
+    });
+
     await checkPermissions();
   } catch (err) {
     console.log('\nIn-cluster loading failed with the following message:\n', err.message);
