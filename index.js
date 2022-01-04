@@ -11,6 +11,18 @@ const axios = require('axios');
 const kc = new k8s.KubeConfig();
 const { Watch } = require('./watch.js');
 
+const startedTime = new Date();
+const ONE_HOUR = 60 * 60 * 1000; /* One hour in ms */
+/**
+ * Returns whether or not the given date over than an hour before startup
+ * @param {Date} d Date to test
+ */
+const overHourOld = (d) => (startedTime - d) < ONE_HOUR;
+
+// Declare these so that if they fail they will be garbage collected
+let crashWatcher;
+let releasedWatcher;
+
 const sendQueue = [];
 setInterval(() => {
   if (sendQueue.length > 0) {
@@ -192,8 +204,8 @@ function done(message, launch, err) {
   if (err) {
     console.error(err);
   }
-  console.log(`== rewatching for ${message}`);
-  launch();
+  console.log(`== rewatching for ${message} in 5 seconds`);
+  setTimeout(launch, 5000); // 5 seconds
 }
 
 let reportedCrashed = {};
@@ -416,7 +428,9 @@ function crashed(type, obj) {
 }
 
 function crashedWatch() {
-  (new Watch(kc)).watch('/api/v1/pods', {}, crashed, done.bind(null, 'crashes', crashedWatch));
+  const path = '/api/v1/pods';
+  crashWatcher = new Watch(kc);
+  crashWatcher.watch(path, {}, crashed, done.bind(null, 'crashes', crashedWatch));
 }
 
 const lastRelease = {};
@@ -443,7 +457,14 @@ function released(type, obj) {
     lastRelease[app] === releaseUUID
     // Deployment must be fully available
     || !(obj.status && obj.status.conditions)
-    || obj.status.conditions.filter((x) => x.type === 'Available' && x.status === 'True').length === 0
+    || obj.status.conditions.filter(
+      (x) => (
+        x.type === 'Available'
+        && x.status === 'True'
+        // Ignore anything that happened over an hour before startup
+        && overHourOld(new Date(x.lastUpdateTime))
+      ),
+    ).length === 0
     || obj.status.observedGeneration !== obj.metadata.generation
     // All replicas must be ready and running the latest image
     || obj.status.availableReplicas !== obj.status.readyReplicas
@@ -494,7 +515,8 @@ function released(type, obj) {
 
 function releasedWatch() {
   const path = '/apis/apps/v1/deployments';
-  (new Watch(kc)).watchNew(path, { includeUninitialized: false }, released, done.bind(null, 'releases', releasedWatch));
+  releasedWatcher = new Watch(kc);
+  releasedWatcher.watchNew(path, { includeUninitialized: false }, released, done.bind(null, 'releases', releasedWatch));
 }
 
 // Get all Akkeris release UUIDs currently deployed in the cluster and store them.
@@ -518,6 +540,9 @@ async function cacheDeploymentReleaseUUIDs() {
     rows.forEach(({ object: { metadata } }) => {
       lastRelease[`${metadata.labels['akkeris.io/app-name']}-${metadata.namespace}`] = metadata.labels['akkeris.io/release-uuid'];
     });
+    if (process.env.DEBUG) {
+      console.log('[debug] Cached UUIDs: ', JSON.stringify(lastRelease, null, 2));
+    }
     console.log('Successfully cached existing release UUIDs!');
   } catch (err) {
     console.log('Unable to cache existing release UUIDs:');
