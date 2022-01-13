@@ -1891,6 +1891,237 @@ module.exports = [
         ],
         "qosClass": "Burstable"
       }
+    },
+    // Nothing wrong, just a pod being deleted after a release [13]
+    {
+      "test": "none",
+      "kind": "Pod",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "logs-c6f97b6bd-tl7t5",
+        "generateName": "logs-c6f97b6bd-",
+        "namespace": "sam",
+        "selfLink": "/api/v1/namespaces/sam/pods/logs-c6f97b6bd-tl7t5",
+        "uid": "55096450-389d-42f7-b889-b089affd7fb8",
+        "resourceVersion": "500400990",
+        "creationTimestamp": "2022-01-13T21:34:30Z",
+        "deletionTimestamp": "2022-01-13T21:53:51Z",
+        "deletionGracePeriodSeconds": 60,
+        "labels": {
+          "akkeris.io/app-name": "logs",
+          "akkeris.io/app-uuid": "30fa16eb-9846-4979-91a9-2554f18bec8a",
+          "akkeris.io/dyno-type": "web",
+          "akkeris.io/http2": "false",
+          "akkeris.io/internal": "true",
+          "akkeris.io/plan": "gp0",
+          "akkeris.io/plan-type": "general",
+          "akkeris.io/production": "false",
+          "akkeris.io/release-uuid": "f2ae5708-f23a-4d62-97ab-7f96b653f180",
+          "akkeris.io/socs": "false",
+          "app": "logs",
+          "name": "logs",
+          "pod-template-hash": "c6f97b6bd",
+          "version": "v1"
+        },
+        "annotations": {
+          "cni.projectcalico.org/podIP": "10.42.1.43/32",
+          "cni.projectcalico.org/podIPs": "10.42.1.43/32",
+          "kubectl.kubernetes.io/default-logs-container": "logs",
+          "prometheus.io/path": "/stats/prometheus",
+          "prometheus.io/port": "15020",
+          "prometheus.io/scrape": "true"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "ReplicaSet",
+            "name": "logs-c6f97b6bd",
+            "uid": "49a95580-bf4f-4d1a-94dd-14d815bfb277",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "default-token-pqprb",
+            "secret": {
+              "secretName": "default-token-pqprb",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "logs",
+            "image": "abc-xyz/qwerty/logs-30fa16eb-9846-4979-91a9-2554f18bec8a:1.16",
+            "ports": [
+              {
+                "containerPort": 9000,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "ALAMO_SPACE",
+                "value": "sam"
+              },
+              {
+                "name": "AKKERIS_SPACE",
+                "value": "sam"
+              },
+              {
+                "name": "ALAMO_DEPLOYMENT",
+                "value": "logs"
+              },
+              {
+                "name": "AKKERIS_DEPLOYMENT",
+                "value": "logs"
+              },
+              {
+                "name": "ALAMO_APPLICATION",
+                "value": "logs-sam"
+              },
+              {
+                "name": "AKKERIS_APPLICATION",
+                "value": "logs-sam"
+              },
+              {
+                "name": "LOG_MESSAGE",
+                "value": "count#logtester.testMetric"
+              },
+              {
+                "name": "PORT",
+                "value": "9000"
+              },
+              {
+                "name": "LOG_SUFFIX",
+                "value": "=1"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "memory": "128Mi"
+              },
+              "requests": {
+                "memory": "128Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "default-token-pqprb",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "readinessProbe": {
+              "tcpSocket": {
+                "port": 9000
+              },
+              "timeoutSeconds": 15,
+              "periodSeconds": 20,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "IfNotPresent",
+            "securityContext": {
+              "capabilities": {}
+            }
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 60,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "ip-10-84-25-128.us-west-2.compute.internal",
+        "securityContext": {},
+        "imagePullSecrets": [
+          {
+            "name": "abc-xyz"
+          }
+        ],
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          },
+          {
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          }
+        ],
+        "priority": 0,
+        "enableServiceLinks": true,
+        "preemptionPolicy": "PreemptLowerPriority"
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2022-01-13T21:34:34Z"
+          },
+          {
+            "type": "Ready",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2022-01-13T21:53:51Z",
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [logs]"
+          },
+          {
+            "type": "ContainersReady",
+            "status": "False",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2022-01-13T21:53:51Z",
+            "reason": "ContainersNotReady",
+            "message": "containers with unready status: [logs]"
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2022-01-13T21:34:30Z"
+          }
+        ],
+        "hostIP": "10.84.25.128",
+        "podIP": "10.42.1.43",
+        "podIPs": [
+          {
+            "ip": "10.42.1.43"
+          }
+        ],
+        "startTime": "2022-01-13T21:34:30Z",
+        "containerStatuses": [
+          {
+            "name": "logs",
+            "state": {
+              "running": {
+                "startedAt": "2022-01-13T21:34:37Z"
+              }
+            },
+            "lastState": {},
+            "ready": false,
+            "restartCount": 0,
+            "image": "abc-xyz/qwerty/logs-30fa16eb-9846-4979-91a9-2554f18bec8a:1.16",
+            "imageID": "docker-pullable://abc-xyz/qwerty/logs-30fa16eb-9846-4979-91a9-2554f18bec8a@sha256:32921e3a0913d5672a21aa74ad21db7b110c9e9a01a06e8907d6be567e2df265",
+            "containerID": "docker://67ef299699abdfda64011080d43d48557eec962defac8059d557365d091b7f5c",
+            "started": true
+          }
+        ],
+        "qosClass": "Burstable"
+      }
     }
 ]
 /* eslint-enable */
