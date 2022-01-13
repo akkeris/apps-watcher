@@ -457,14 +457,10 @@ function released(type, obj) {
     lastRelease[app] === releaseUUID
     // Deployment must be fully available
     || !(obj.status && obj.status.conditions)
-    || obj.status.conditions.filter(
-      (x) => (
-        x.type === 'Available'
-        && x.status === 'True'
-        // Ignore anything that happened over an hour before startup
-        && overHourOld(new Date(x.lastUpdateTime))
-      ),
-    ).length === 0
+    || obj.status.conditions.findIndex((x) => x.type === 'Progressing') === -1
+    || obj.status.conditions.find((x) => x.type === 'Progressing').status !== 'True'
+    || obj.status.conditions.find((x) => x.type === 'Progressing').reason !== 'NewReplicaSetAvailable'
+    || overHourOld(obj.status.conditions.find((x) => x.type === 'Progressing').lastUpdateTime)
     || obj.status.observedGeneration !== obj.metadata.generation
     // All replicas must be ready and running the latest image
     || obj.status.availableReplicas !== obj.status.readyReplicas
