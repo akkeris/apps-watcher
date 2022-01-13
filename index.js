@@ -282,6 +282,11 @@ function crashed(type, obj) {
     return null;
   }
 
+  // Ignore expected crashes (e.g. deleted pods)
+  if (obj.metadata.deletionTimestamp) {
+    return null;
+  }
+
   // Parse app name from metadata
   let appName;
   if (obj.metadata.labels['akkeris.io/app-name']) {
