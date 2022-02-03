@@ -20,7 +20,7 @@ const ONE_HOUR = 60 * 60 * 1000; /* One hour in ms */
 const overHourOld = (d) => (startedTime - d) < ONE_HOUR;
 
 // Declare these so that if they fail they will be garbage collected
-let crashWatcher;
+let podsWatcher;
 let releasedWatcher;
 
 const sendQueue = [];
@@ -282,6 +282,11 @@ function crashed(type, obj) {
     return null;
   }
 
+  // Ignore Actions
+  if (obj.metadata.labels['akkeris.io/action']) {
+    return null;
+  }
+
   // Parse app name from metadata
   let appName;
   if (obj.metadata.labels['akkeris.io/app-name']) {
@@ -427,10 +432,134 @@ function crashed(type, obj) {
   return reportCrashed(type, obj, appName, spaceName, dyno, dynoType, description, code, restarts);
 }
 
-function crashedWatch() {
+/**
+ * Cache of action runs that have been reported.
+ * This is an object that maps action UUIDs to a Set of run UUIDs
+ */
+let reportedActionComplete = {};
+
+/**
+ * Cache of action runs that have been started, but not finished.
+ * This is an object that maps action UUIDs to a Set of run UUIDs
+ */
+let reportedActionStarted = {};
+
+// Clear the action caches every 30 minutes
+setInterval(() => {
+  reportedActionComplete = {};
+  reportedActionStarted = {};
+}, 30 * 60 * 1000);
+
+/**
+ * Reports when an Akkeris action run has started or completed
+ * @param {*} type Type of event
+ * @param {*} obj Event object from Kubernetes
+ */
+function actions(type, obj) {
+  // Make sure the event has the correct structure (ignores other types of events)
+  if (
+    !obj.metadata
+    || !obj.metadata.labels
+    || !obj.metadata.name
+    || !obj.status
+    || obj.metadata.deletionTimestamp
+    || !(obj.metadata.labels['akkeris.io/app-name'])
+    || !(obj.metadata.labels['akkeris.io/action'])
+    || !obj.status.containerStatuses
+    || obj.status.containerStatuses.length === 0
+  ) {
+    return null;
+  }
+
+  // Extract metadata
+  const appName = obj.metadata.labels['akkeris.io/app-name'];
+  const actionName = obj.metadata.labels['akkeris.io/action-name'];
+  const actionID = obj.metadata.labels['akkeris.io/action-uuid'];
+  const runID = obj.metadata.labels['akkeris.io/action-run-uuid'];
+  const spaceName = obj.metadata.namespace;
+  const app = `${appName}-${spaceName}`;
+
+  const containerStatus = obj.status.containerStatuses.find((s) => s.name === obj.metadata.name);
+  if (!containerStatus) {
+    return null;
+  }
+
+  const payload = {
+    app: {
+      name: appName,
+    },
+    space: {
+      name: spaceName,
+    },
+    action_details: {
+      id: actionID,
+      name: actionName,
+      run: runID,
+    },
+    key: app,
+  };
+
+  if (
+    containerStatus.state.terminated
+    && !(reportedActionComplete[actionID] && reportedActionComplete[actionID].has(runID))
+  ) {
+    // Action has finished!
+    const success = (containerStatus.state.terminated.exitCode === 0);
+    payload.success = success;
+    payload.action = 'action_run_finished';
+    payload.started_at = containerStatus.state.terminated.startedAt;
+    payload.finished_at = containerStatus.state.terminated.finishedAt;
+    payload.reason = containerStatus.state.terminated.reason;
+    payload.exit_code = containerStatus.state.terminated.exitCode;
+
+    if (!reportedActionComplete[actionID]) {
+      reportedActionComplete[actionID] = new Set();
+    }
+    reportedActionComplete[actionID].add(runID);
+
+    if (process.env.DEBUG) {
+      console.log('[debug] app action run finished:', JSON.stringify(payload, null, 2));
+    }
+    console.log(`** ${app} action ${actionName} finished run ${runID} with status: ${success ? 'Completed' : 'Error'}`);
+  } else if (
+    containerStatus.state.running
+    && !(reportedActionStarted[actionID] && reportedActionStarted[actionID].has(runID))
+  ) {
+    // Action has started running!
+    payload.started_at = containerStatus.state.running.startedAt;
+    payload.action = 'action_run_started';
+
+    if (!reportedActionStarted[actionID]) {
+      reportedActionStarted[actionID] = new Set();
+    }
+    reportedActionStarted[actionID].add(runID);
+
+    if (process.env.DEBUG) {
+      console.log('[debug] app action run started:', JSON.stringify(payload, null, 2));
+    }
+    console.log(`** ${app} action ${actionName} started run ${runID}`);
+  } else {
+    return null;
+  }
+
+  if (process.env.TEST_MODE) {
+    return payload;
+  }
+
+  send(payload);
+  return null;
+}
+
+// Call handlers for Pod watchers
+function podHandlers(type, obj) {
+  crashed(type, obj);
+  actions(type, obj);
+}
+
+function podsWatch() {
   const path = '/api/v1/pods';
-  crashWatcher = new Watch(kc);
-  crashWatcher.watch(path, {}, crashed, done.bind(null, 'crashes', crashedWatch));
+  podsWatcher = new Watch(kc);
+  podsWatcher.watchNew(path, {}, podHandlers, done.bind(null, 'pods', podsWatch));
 }
 
 const lastRelease = {};
@@ -562,7 +691,7 @@ if (!process.env.TEST_MODE) {
     await cacheDeploymentReleaseUUIDs();
 
     releasedWatch();
-    crashedWatch();
+    podsWatch();
   }()).catch((e) => console.error(e));
 }
 
