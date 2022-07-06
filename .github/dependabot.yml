@@ -1,0 +1,17 @@
+version: 2
+updates:
+- package-ecosystem: npm
+  directory: "/"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: "@kubernetes/client-node"
+    versions:
+    - 0.13.2
+    - 0.14.0
+    - 0.14.1
+    - 0.14.2
+  - dependency-name: lodash
+    versions:
+    - 4.17.20
